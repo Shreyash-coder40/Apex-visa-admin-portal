@@ -68,6 +68,11 @@ export default function SecureDocumentUpload() {
       const fileExt = file.name.split('.').pop();
       const fileName = `${data.student_id}/${Date.now()}_${doc.id}.${fileExt}`;
 
+      // 0. Clean up old file if it exists to prevent data redundancy
+      if (doc.file_url) {
+        await supabase.storage.from('student_documents').remove([doc.file_url]);
+      }
+
       // 1. Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('student_documents')
