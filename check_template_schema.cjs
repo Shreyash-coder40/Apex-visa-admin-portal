@@ -6,12 +6,19 @@ const client = new Client({
 });
 
 async function run() {
-  await client.connect();
-  
-  const { rows: cols1 } = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'checklist_templates'");
-  console.log('checklist_templates cols:', cols1.map(c => c.column_name));
-  
-  await client.end();
+  try {
+    await client.connect();
+    const res = await client.query(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'checklist_template_items';
+    `);
+    console.log('Columns in checklist_template_items:', res.rows);
+  } catch (err) {
+    console.error('Error:', err);
+  } finally {
+    await client.end();
+  }
 }
 
 run();

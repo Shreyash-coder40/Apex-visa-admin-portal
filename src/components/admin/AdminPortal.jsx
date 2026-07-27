@@ -8,6 +8,7 @@ import ClientsList from './ClientsList';
 import DocumentsMasterList from './DocumentsMasterList';
 import ActivityTimeline from './ActivityTimeline';
 import ConfigurationManager from './ConfigurationManager';
+import MasterTemplatesManager from './MasterTemplatesManager';
 import NewApplicationModal from './NewApplicationModal';
 import { supabase } from '../../lib/supabaseClient';
 import '../../admin-theme.css';
@@ -148,6 +149,7 @@ export default function AdminPortal() {
 
   if (currentRole === 'super_admin') {
     navItems.push({ id: 'config', category: 'ADMIN', label: 'Global Setup', icon: <Settings size={18} /> });
+    navItems.push({ id: 'templates', category: 'ADMIN', label: 'Checklist Templates', icon: <FileText size={18} /> });
   }
 
   const groupedNav = navItems.reduce((acc, item) => {
@@ -333,6 +335,7 @@ export default function AdminPortal() {
           {activeTab === 'payments' && <FinancialLedger currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} />}
           {activeTab === 'reports' && <ActivityTimeline currentRole={currentRole} currentBranch={currentBranch} />}
           {activeTab === 'config' && currentRole === 'super_admin' && <ConfigurationManager showToast={showToast} />}
+          {activeTab === 'templates' && currentRole === 'super_admin' && <MasterTemplatesManager showToast={showToast} />}
           
           {['visa_types', 'communication', 'partners'].includes(activeTab) && (
             <div style={{ padding: '60px', textAlign: 'center', background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb' }}>

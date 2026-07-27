@@ -9,9 +9,17 @@ async function run() {
   try {
     await client.connect();
     const res = await client.query(`
-      SELECT prosrc FROM pg_proc WHERE proname = 'update_document_status_by_invite';
+      SELECT pg_get_triggerdef(t.oid) as def
+      FROM pg_trigger t
+      JOIN pg_class c ON t.tgrelid = c.oid
+      WHERE c.relname = 'student_destinations';
     `);
-    console.log(res.rows[0]?.prosrc);
+    console.log(res.rows);
+
+    const func = await client.query(`
+      SELECT prosrc FROM pg_proc WHERE proname = 'fn_generate_student_checklists';
+    `);
+    console.log(func.rows);
   } catch (err) {
     console.error('Error:', err);
   } finally {
