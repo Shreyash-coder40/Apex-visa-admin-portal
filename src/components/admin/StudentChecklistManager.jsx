@@ -1,297 +1,706 @@
-import React, { useState } from 'react';
-import { Users, FileCheck, CheckCircle2, AlertCircle, Clock, Plus, ArrowRight, ShieldCheck, FileText, Check, X, Award, Globe, Building2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, FileCheck, CheckCircle2, AlertCircle, Clock, Plus, ArrowRight, ShieldCheck, FileText, Check, X, Award, Globe, Building2, Loader2, DollarSign, Download, MessageSquare, MoreHorizontal, Calendar, MapPin, Key } from 'lucide-react';
+import { supabase } from '../../lib/supabaseClient';
+import StudentTimelineView from './StudentTimelineView';
 
-export default function StudentChecklistManager({ currentRole, currentBranch, studentsList, onUpdateStudents }) {
+export default function StudentChecklistManager({ currentRole, currentBranch, showToast, externalSelectedStudentId, setExternalSelectedStudentId }) {
   const isSuperAdmin = currentRole === 'super_admin';
+  const [studentsList, setStudentsList] = useState([]);
+  const [localSelectedStudentId, setLocalSelectedStudentId] = useState(null);
+  const [selectedDestinationId, setSelectedDestinationId] = useState(null);
+  const [activeVertical, setActiveVertical] = useState('admission');
+  const [loading, setLoading] = useState(true);
 
-  // State for active student and active destination tab
-  const [selectedStudentId, setSelectedStudentId] = useState(studentsList[0]?.id || 'S101');
-  const [activeVertical, setActiveVertical] = useState('admission'); // 'admission' or 'visa'
+  const selectedStudentId = externalSelectedStudentId || localSelectedStudentId;
 
-  const selectedStudent = studentsList.find(s => s.id === selectedStudentId) || studentsList[0];
-  const activeDestination = selectedStudent?.destinations?.[0] || {
-    country: '🇨🇦 Canada',
-    course: 'MSc Computer Science (University of Toronto)',
-    admissionChecklist: [
-      { id: 'doc1', name: 'Undergraduate Degree Transcripts & Certificate', status: 'Received', deadline: '2026-08-01', notes: 'Verified official seal.' },
-      { id: 'doc2', name: 'Statement of Purpose (SOP) - Vistara Verified', status: 'Received', deadline: '2026-08-05', notes: 'Approved by Senior Counselor.' },
-      { id: 'doc3', name: '2 Academic Letters of Recommendation (LORs)', status: 'Pending', deadline: '2026-08-10', notes: 'Waiting for Professor response.' },
-      { id: 'doc4', name: 'IELTS Official Score Card (Overall 7.5+)', status: 'Received', deadline: '2026-08-12', notes: 'Band 8.0 confirmed.' },
-      { id: 'doc5', name: 'Updated Professional Resume / CV', status: 'Waived', deadline: '2026-08-15', notes: 'Fresh graduate, waived.' },
-    ],
-    visaChecklist: [
-      { id: 'vdoc1', name: 'Valid Passport Copy (6+ months validity remaining)', status: 'Received', deadline: '2026-08-20', notes: 'Passport valid till 2032.' },
-      { id: 'vdoc2', name: 'Guaranteed Investment Certificate (GIC) Proof ($20,635 CAD)', status: 'Pending', deadline: '2026-08-25', notes: 'Student opening Scotiabank GIC account.' },
-      { id: 'vdoc3', name: 'First Year Tuition Fee Payment Receipt from University', status: 'Pending', deadline: '2026-08-28', notes: 'Waiting for admission offer letter first.' },
-      { id: 'vdoc4', name: 'Upfront Medical Examination Report (eMedical)', status: 'Pending', deadline: '2026-09-01', notes: 'Booked appointment for Aug 18.' },
-      { id: 'vdoc5', name: 'Police Clearance Certificate (PCC)', status: 'Received', deadline: '2026-09-05', notes: 'Clean background check.' },
-    ]
+  // Destination Modal States
+  const [showDestModal, setShowDestModal] = useState(false);
+  const [newDestCountry, setNewDestCountry] = useState('');
+  const [newDestLevel, setNewDestLevel] = useState('');
+
+  // Reassignment Modal States
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [branchesList, setBranchesList] = useState([]);
+  const [newBranchId, setNewBranchId] = useState('');
+
+  // Edit Profile Modal States
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [editProfileForm, setEditProfileForm] = useState({});
+
+  // Request Document Modal States
+  const [showAddDocModal, setShowAddDocModal] = useState(false);
+  const [newDocName, setNewDocName] = useState('');
+  const [newDocNotes, setNewDocNotes] = useState('');
+
+  useEffect(() => {
+    fetchStudents();
+  }, [currentRole, currentBranch]);
+
+  const fetchStudents = async () => {
+    try {
+      setLoading(true);
+      let query = supabase
+        .from('students')
+        .select(`
+          *,
+          branches(name, code),
+          leads(interested_country, intended_course, education_level, name, phone, email),
+          student_destinations(
+            id, destination_country, target_education_level, status,
+            checklist_instances(
+              id, vertical, status,
+              document_items(*)
+            )
+          ),
+          fee_records(
+            *,
+            fee_types(name),
+            payment_transactions(*),
+            refund_records(*)
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (currentRole === 'branch_admin' && currentBranch) {
+        const branchId = typeof currentBranch === 'object' ? currentBranch.id : currentBranch;
+        if (branchId) {
+          query = query.eq('branch_id', branchId);
+        }
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setStudentsList(data || []);
+
+      if (isSuperAdmin) {
+        const { data: bData } = await supabase.from('branches').select('*').eq('is_active', true).order('name');
+        if (bData) setBranchesList(bData);
+      }
+    } catch (err) {
+      console.error('Error fetching students:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const currentChecklist = activeVertical === 'admission' ? activeDestination.admissionChecklist : activeDestination.visaChecklist;
+  const selectedStudent = studentsList.find(s => s.id === selectedStudentId);
+  const primaryDestination = selectedStudent?.student_destinations?.find(d => d.id === selectedDestinationId) || selectedStudent?.student_destinations?.[0];
+  const currentChecklistInstance = primaryDestination?.checklist_instances?.find(c => c.vertical === activeVertical);
+  const currentChecklist = currentChecklistInstance?.document_items || [];
 
-  // Calculate completion percentage
   const completedDocs = currentChecklist.filter(d => d.status === 'Received' || d.status === 'Waived').length;
-  const progressPct = Math.round((completedDocs / currentChecklist.length) * 100) || 0;
+  const progressPct = currentChecklist.length > 0 ? Math.round((completedDocs / currentChecklist.length) * 100) : 0;
 
-  const handleStatusToggle = (docId, newStatus) => {
-    const updatedStudents = studentsList.map(student => {
-      if (student.id !== selectedStudentId) return student;
-      const updatedDestinations = student.destinations.map(dest => {
-        const targetList = activeVertical === 'admission' ? 'admissionChecklist' : 'visaChecklist';
-        const updatedDocs = dest[targetList].map(doc => 
-          doc.id === docId ? { ...doc, status: newStatus } : doc
-        );
-        return { ...dest, [targetList]: updatedDocs };
-      });
-      return { ...student, destinations: updatedDestinations };
-    });
-    if (onUpdateStudents) onUpdateStudents(updatedStudents);
+  const handleStatusToggle = async (docId, newStatus) => {
+    try {
+      const { error } = await supabase
+        .from('document_items')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', docId);
+
+      if (error) throw error;
+      if (showToast) showToast(`Document marked as ${newStatus}`);
+      await fetchStudents(); 
+    } catch (err) {
+      console.error('Error updating checklist:', err);
+      if (showToast) showToast('Failed to update checklist status.', 'error');
+    }
   };
+
+  const allDocs = primaryDestination?.checklist_instances?.flatMap(c => c.document_items) || [];
+  const docsReceived = allDocs.filter(d => d.status === 'Received' || d.status === 'Waived').length;
+  const docsStatus = allDocs.length === 0 ? 'Pending' : (docsReceived === allDocs.length ? 'Completed' : 'In Progress');
+  
+  const admissionChecklist = primaryDestination?.checklist_instances?.find(c => c.vertical === 'admission');
+  const visaChecklist = primaryDestination?.checklist_instances?.find(c => c.vertical === 'visa');
+
+  const stages = [
+    { title: 'Application Created', status: 'Completed', subtitle: new Date(selectedStudent?.created_at).toLocaleDateString() },
+    { title: 'Document Collection', status: docsStatus, subtitle: `${docsReceived} of ${allDocs.length} approved` },
+    { title: 'Admission Process', status: admissionChecklist?.status || 'Pending', id: admissionChecklist?.id, isEditable: !!admissionChecklist?.id },
+    { title: 'Visa Approval', status: visaChecklist?.status || 'Pending', id: visaChecklist?.id, isEditable: !!visaChecklist?.id }
+  ];
+
+  const handleUpdateChecklistStatus = async (checklistId, newStatus) => {
+    try {
+      const { error } = await supabase
+        .from('checklist_instances')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', checklistId);
+      if (error) throw error;
+      if (showToast) showToast(`Stage marked as ${newStatus}`);
+      await fetchStudents();
+    } catch (err) {
+      console.error('Error updating stage:', err);
+      if (showToast) showToast('Failed to update stage.', 'error');
+    }
+  };
+
+  const handleGenerateInvite = async () => {
+    try {
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const { error } = await supabase
+        .from('students')
+        .update({ invite_code: code })
+        .eq('id', selectedStudentId);
+
+      if (error) throw error;
+      
+      if (showToast) {
+        showToast(`Invite Code Generated: ${code}. Share this with the student.`, 'success');
+      }
+      await fetchStudents();
+    } catch (err) {
+      console.error('Error generating invite:', err);
+      if (showToast) showToast('Failed to generate invite.', 'error');
+    }
+  };
+
+  const handleCreateDestination = async (e) => {
+    e.preventDefault();
+    try {
+      const { error } = await supabase.from('student_destinations').insert({
+        student_id: selectedStudentId,
+        destination_country: newDestCountry,
+        target_education_level: newDestLevel,
+        status: 'Active'
+      });
+      if (error) throw error;
+      setShowDestModal(false);
+      setNewDestCountry('');
+      setNewDestLevel('');
+      if (showToast) showToast("Destination added successfully.");
+      await fetchStudents();
+    } catch (err) {
+      console.error('Error adding destination:', err);
+      if (showToast) showToast('Failed to add destination.', 'error');
+    }
+  };
+
+  const handleReassignBranch = async (e) => {
+    e.preventDefault();
+    if (!newBranchId) return;
+    try {
+      const { error } = await supabase.from('students')
+        .update({ branch_id: newBranchId })
+        .eq('id', selectedStudentId);
+      
+      if (error) throw error;
+      setShowReassignModal(false);
+      if (showToast) showToast("Student reassigned successfully.");
+      await fetchStudents();
+    } catch (err) {
+      console.error('Error reassigning branch:', err);
+      if (showToast) showToast('Failed to reassign branch.', 'error');
+    }
+  };
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({
+          date_of_birth: editProfileForm.date_of_birth || null,
+          gender: editProfileForm.gender || null,
+          marital_status: editProfileForm.marital_status || null,
+          nationality: editProfileForm.nationality || null,
+          passport_number: editProfileForm.passport_number || null,
+          passport_expiry: editProfileForm.passport_expiry || null,
+          address: editProfileForm.address || null,
+          highest_qualification: editProfileForm.highest_qualification || null,
+          english_test_type: editProfileForm.english_test_type || null,
+          english_overall_score: editProfileForm.english_overall_score || null,
+        })
+        .eq('id', selectedStudentId);
+
+      if (error) throw error;
+      if (showToast) showToast('Profile updated successfully!');
+      setShowEditProfileModal(false);
+      await fetchStudents();
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      if (showToast) showToast('Failed to update profile.', 'error');
+    }
+  };
+
+  const handleAddDocument = async (e) => {
+    e.preventDefault();
+    if (!currentChecklistInstance?.id) {
+      if (showToast) showToast('No active checklist stage available to add documents to. Create a destination first.', 'error');
+      return;
+    }
+    
+    try {
+      const { error } = await supabase.from('document_items').insert({
+        instance_id: currentChecklistInstance.id,
+        document_name: newDocName,
+        notes: newDocNotes,
+        status: 'Pending',
+        is_required: true
+      });
+      if (error) throw error;
+      
+      setShowAddDocModal(false);
+      setNewDocName('');
+      setNewDocNotes('');
+      if (showToast) showToast('Document requested successfully.');
+      await fetchStudents();
+    } catch (err) {
+      console.error('Error requesting document:', err);
+      if (showToast) showToast('Failed to request document.', 'error');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
+        <Loader2 size={40} className="animate-spin" color="var(--admin-primary)" />
+      </div>
+    );
+  }
+
+  if (studentsList.length === 0) {
+    return (
+      <div style={{ padding: '32px' }}>
+        <div style={{ background: '#ffffff', borderRadius: '14px', padding: '40px', textAlign: 'center', border: '1px solid var(--admin-border-light)' }}>
+          <AlertCircle size={40} color="var(--admin-text-muted)" style={{ margin: '0 auto 16px' }} />
+          <h2 style={{ fontSize: '1.2rem', color: 'var(--admin-text-primary)', margin: '0 0 8px 0' }}>No Clients Found</h2>
+          <p style={{ color: 'var(--admin-text-muted)', margin: 0 }}>Convert a lead to a student in the Pipeline to view details.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!selectedStudent) {
+    return (
+      <div style={{ padding: '32px' }}>
+        <div style={{ background: '#ffffff', borderRadius: '14px', padding: '40px', textAlign: 'center', border: '1px solid var(--admin-border-light)' }}>
+          <Users size={40} color="var(--admin-text-muted)" style={{ margin: '0 auto 16px' }} />
+          <h2 style={{ fontSize: '1.2rem', color: 'var(--admin-text-primary)', margin: '0 0 8px 0' }}>No Application Selected</h2>
+          <p style={{ color: 'var(--admin-text-muted)', margin: 0 }}>Please select an application from the Clients directory or Pipeline to view full details.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px', alignItems: 'flex-start' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
       
-      {/* Left Sidebar: Enrolled Students List */}
-      <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* Header Section */}
+      <div style={{ marginBottom: '32px' }}>
+        <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '8px' }}>
+          Applications / APP-{selectedStudent?.id?.substring(0, 4).toUpperCase() || 'ID'}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '700', color: '#0f172a' }}>
-              Enrolled Students ({studentsList.length})
-            </h3>
-            <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: '#64748b' }}>
-              RLS Filtered to {isSuperAdmin ? 'All Branches' : currentBranch.code}
-            </p>
+            <h1 style={{ fontSize: '1.8rem', fontWeight: '800', color: '#111827', margin: '0 0 16px 0', letterSpacing: '-0.02em', fontFamily: '"Inter", sans-serif' }}>
+              {selectedStudent?.name || selectedStudent?.leads?.name || 'Unnamed Client'} — {primaryDestination?.target_education_level || 'No Level'} ({primaryDestination?.destination_country || 'No Destination'})
+            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#ecfdf5', color: '#059669', padding: '4px 10px', borderRadius: '16px', fontSize: '0.75rem', fontWeight: '600' }}>
+                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#059669' }}></div>
+                 {primaryDestination?.status || 'Active'}
+               </div>
+               <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+                 Created on {new Date(selectedStudent?.created_at).toLocaleDateString()}
+               </span>
+            </div>
           </div>
-          <span style={{ background: '#eff6ff', color: '#0066ff', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700' }}>
-            Active
-          </span>
+          
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button onClick={() => { setEditProfileForm(selectedStudent || {}); setShowEditProfileModal(true); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--admin-bg-body)', border: '1px solid var(--admin-border-light)', borderRadius: '8px', padding: '8px 16px', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-primary)', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+              Edit Profile
+            </button>
+            <button onClick={handleGenerateInvite} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '0.85rem', fontWeight: '600', color: '#000', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+              <Key size={16} /> {selectedStudent?.invite_code ? `Code: ${selectedStudent.invite_code}` : 'Generate Invite'}
+            </button>
+            <button style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 16px', fontSize: '0.85rem', fontWeight: '600', color: '#374151', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+              <MessageSquare size={16} /> Message client
+            </button>
+            <button style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 16px', fontSize: '0.85rem', fontWeight: '600', color: '#374151', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+              <Download size={16} /> Download file
+            </button>
+            <button style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', color: '#374151', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+              <MoreHorizontal size={16} />
+            </button>
+          </div>
         </div>
+      </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', maxHeight: '640px', overflowY: 'auto' }}>
-          {studentsList.map(student => {
-            const isSelected = student.id === selectedStudentId;
-            return (
-              <div 
-                key={student.id}
-                onClick={() => setSelectedStudentId(student.id)}
-                style={{
-                  padding: '16px 20px',
-                  borderBottom: '1px solid #f1f5f9',
-                  background: isSelected ? '#eff6ff' : '#ffffff',
-                  borderLeft: isSelected ? '4px solid #0066ff' : '4px solid transparent',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onMouseOver={e => !isSelected && (e.currentTarget.style.background = '#f8fafc')}
-                onMouseOut={e => !isSelected && (e.currentTarget.style.background = '#ffffff')}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ fontWeight: '700', fontSize: '0.92rem', color: isSelected ? '#0066ff' : '#0f172a' }}>
-                    {student.name}
+      {/* Main Content Split */}
+      <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+          
+          {/* Left Column (Applicant Info & Docs) */}
+          <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            
+            {/* Applicant Information Card */}
+            <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              <div style={{ padding: '24px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#111827' }}>Applicant information</h3>
+                <button onClick={() => setShowDestModal(true)} style={{ background: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer' }}>
+                   <MoreHorizontal size={18} />
+                </button>
+              </div>
+              <div style={{ padding: '24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'y-32px x-24px', rowGap: '32px' }}>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>FULL NAME</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.name || selectedStudent?.leads?.name || 'Not provided'}</div>
                   </div>
-                  <span style={{ fontSize: '0.72rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', color: '#475569', fontWeight: '600' }}>
-                    {student.branch}
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px' }}>
-                  {student.destinations[0].country} • {student.destinations[0].course.split('(')[0]}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-                  <span style={{ fontSize: '0.72rem', color: '#059669', background: '#ecfdf5', padding: '2px 8px', borderRadius: '999px', fontWeight: '700' }}>
-                    Admission: {student.destinations[0].admissionChecklist.filter(d => d.status === 'Received' || d.status === 'Waived').length}/{student.destinations[0].admissionChecklist.length}
-                  </span>
-                  <span style={{ fontSize: '0.72rem', color: '#0066ff', background: '#eff6ff', padding: '2px 8px', borderRadius: '999px', fontWeight: '700' }}>
-                    Visa: {student.destinations[0].visaChecklist.filter(d => d.status === 'Received' || d.status === 'Waived').length}/{student.destinations[0].visaChecklist.length}
-                  </span>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>DATE OF BIRTH</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.date_of_birth || selectedStudent?.leads?.date_of_birth || 'Not provided'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>NATIONALITY</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.nationality || selectedStudent?.leads?.nationality || 'Not provided'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>PASSPORT NO. (EXPIRY)</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.passport_number ? `${selectedStudent.passport_number} (${selectedStudent.passport_expiry || 'No Expiry'})` : selectedStudent?.leads?.passport_number || 'Not provided'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>GENDER / MARITAL</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.gender ? `${selectedStudent.gender} / ${selectedStudent.marital_status || 'Unknown'}` : 'Not provided'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>PHONE</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.phone || selectedStudent?.leads?.phone || 'Not provided'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>EMAIL</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.email || selectedStudent?.leads?.email || 'Not provided'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>ACADEMIC PROFILE</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.highest_qualification || 'Not provided'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>ENGLISH TEST</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.english_test_type ? `${selectedStudent.english_test_type} (${selectedStudent.english_overall_score || '-'})` : 'Not provided'}</div>
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>PERMANENT ADDRESS</div>
+                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.address || 'Not provided'}</div>
+                  </div>
+              </div>
+            </div>
+
+            {/* Documents Card */}
+            <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              <div style={{ padding: '24px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#111827' }}>Documents</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: '500' }}>{completedDocs} of {currentChecklist.length || 0} approved</div>
+                  <button 
+                    onClick={() => setShowAddDocModal(true)}
+                    style={{ background: 'var(--admin-bg-body)', border: '1px solid var(--admin-border-light)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: 'var(--admin-text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Plus size={14} /> Request Document
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (!selectedStudent?.invite_code) {
+                        showToast('Please generate an invite code first', 'error');
+                        return;
+                      }
+                      const link = `${window.location.origin}/upload/${selectedStudent.invite_code}`;
+                      navigator.clipboard.writeText(link);
+                      if (showToast) showToast('Secure Upload Link copied to clipboard!');
+                    }}
+                    style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#0f172a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Key size={14} /> Copy Upload Link
+                  </button>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {currentChecklist.length === 0 ? (
+                  <div style={{ padding: '32px', textAlign: 'center', color: '#6b7280', fontSize: '0.9rem' }}>No documents configured for this checklist.</div>
+                ) : currentChecklist.map((doc, idx) => (
+                  <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: idx !== currentChecklist.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div style={{ width: '40px', height: '40px', background: '#f3f4f6', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', fontWeight: '700', fontSize: '0.7rem' }}>
+                        DOC
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: '600', color: '#111827', fontSize: '0.95rem', marginBottom: '4px' }}>{doc.document_name}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Status: {doc.status}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: doc.status === 'Received' ? '#ecfdf5' : doc.status === 'Pending' ? '#fffbeb' : '#fef2f2', color: doc.status === 'Received' ? '#059669' : doc.status === 'Pending' ? '#d97706' : '#dc2626', padding: '4px 10px', borderRadius: '16px', fontSize: '0.75rem', fontWeight: '600' }}>
+                         {doc.status}
+                      </div>
+                      
+                      {doc.file_url && (
+                        <button onClick={async () => {
+                          try {
+                            const { data, error } = await supabase.storage.from('student_documents').createSignedUrl(doc.file_url, 60);
+                            if (error) throw error;
+                            if (data?.signedUrl) {
+                              window.open(data.signedUrl, '_blank');
+                            }
+                          } catch (err) {
+                            console.error('Error opening file:', err);
+                            if (showToast) showToast('Failed to open document. It may have been removed.', 'error');
+                          }
+                        }} style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#0f172a', cursor: 'pointer' }}>
+                          View PDF
+                        </button>
+                      )}
 
-      {/* Right Main Area: Dual-Vertical Checklist Engine */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        
-        {/* Student Header Profile & Progress Box */}
-        <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800', color: '#0f172a', fontFamily: 'Outfit, sans-serif' }}>
-                  {selectedStudent.name}
-                </h2>
-                <span style={{ background: '#eff6ff', color: '#0066ff', border: '1px solid #bfdbfe', padding: '3px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Building2 size={13} /> {selectedStudent.branch}
-                </span>
+                      <select 
+                        value={doc.status}
+                        onChange={(e) => handleStatusToggle(doc.id, e.target.value)}
+                        style={{ background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '2px 4px', fontSize: '0.75rem', color: '#4b5563', cursor: 'pointer' }}
+                      >
+                         <option value="Pending">Pending</option>
+                         <option value="Received">Received</option>
+                         <option value="Rejected">Rejected</option>
+                         <option value="Waived">Waived</option>
+                      </select>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <p style={{ margin: '6px 0 0 0', fontSize: '0.88rem', color: '#64748b' }}>
-                <strong>Target Destination:</strong> {activeDestination.country} — {activeDestination.course}
-              </p>
             </div>
 
-            {/* Vertical Switcher Tabs */}
-            <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '10px', gap: '6px' }}>
-              <button
-                onClick={() => setActiveVertical('admission')}
-                style={{
-                  background: activeVertical === 'admission' ? '#0066ff' : 'transparent',
-                  color: activeVertical === 'admission' ? '#ffffff' : '#64748b',
-                  border: 'none',
-                  padding: '10px 18px',
-                  borderRadius: '8px',
-                  fontSize: '0.85rem',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: activeVertical === 'admission' ? '0 4px 12px rgba(0, 102, 255, 0.3)' : 'none',
-                  transition: 'all 0.2s'
-                }}
-              >
-                <Award size={16} />
-                <span>1. University Admission Vertical</span>
-              </button>
-              <button
-                onClick={() => setActiveVertical('visa')}
-                style={{
-                  background: activeVertical === 'visa' ? '#0f172a' : 'transparent',
-                  color: activeVertical === 'visa' ? '#ffffff' : '#64748b',
-                  border: 'none',
-                  padding: '10px 18px',
-                  borderRadius: '8px',
-                  fontSize: '0.85rem',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: activeVertical === 'visa' ? '0 4px 12px rgba(15, 23, 42, 0.3)' : 'none',
-                  transition: 'all 0.2s'
-                }}
-              >
-                <Globe size={16} />
-                <span>2. Immigration Visa Vertical</span>
-              </button>
-            </div>
           </div>
 
-          {/* Progress Bar */}
-          <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <FileCheck size={16} color={activeVertical === 'admission' ? '#0066ff' : '#059669'} />
-                {activeVertical === 'admission' ? 'University Admission Checklist Progress' : 'Immigration & Consular Visa Checklist Progress'}
-              </span>
-              <span style={{ fontSize: '0.9rem', fontWeight: '800', color: activeVertical === 'admission' ? '#0066ff' : '#059669' }}>
-                {completedDocs} of {currentChecklist.length} Verified ({progressPct}%)
-              </span>
+          {/* Right Column (Timeline & Finances) */}
+          <div style={{ width: '380px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            
+            {/* Application Milestones Card */}
+            <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '24px' }}>
+              <h3 style={{ margin: '0 0 24px 0', fontSize: '1.05rem', fontWeight: '700', color: '#111827' }}>Application milestones</h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0', position: 'relative' }}>
+                <div style={{ position: 'absolute', left: '7px', top: '10px', bottom: '10px', width: '2px', background: '#e5e7eb', zIndex: 0 }}></div>
+                
+                {stages.map((stage, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: '16px', position: 'relative', zIndex: 1, paddingBottom: idx !== stages.length - 1 ? '24px' : '0' }}>
+                     <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: stage.status === 'Completed' ? '#059669' : '#ffffff', border: `2px solid ${stage.status === 'Completed' ? '#059669' : stage.status === 'In Progress' ? '#f59e0b' : '#d1d5db'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '2px' }}>
+                        {stage.status === 'Completed' && <Check size={10} color="#ffffff" strokeWidth={3} />}
+                     </div>
+                     <div style={{ flex: 1 }}>
+                       <div style={{ fontWeight: '600', color: '#111827', fontSize: '0.9rem', marginBottom: '4px' }}>{stage.title}</div>
+                       <div style={{ color: '#6b7280', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                         <span>{stage.subtitle || stage.status}</span>
+                         {stage.isEditable && (
+                            <select 
+                              value={stage.status}
+                              onChange={(e) => handleUpdateChecklistStatus(stage.id, e.target.value)}
+                              style={{ background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '2px 4px', fontSize: '0.75rem', color: '#4b5563', cursor: 'pointer', marginLeft: '8px' }}
+                            >
+                               <option value="Pending">Pending</option>
+                               <option value="In Progress">In Progress</option>
+                               <option value="Completed">Completed</option>
+                            </select>
+                         )}
+                       </div>
+                     </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
-              <div style={{ 
-                width: `${progressPct}%`, 
-                height: '100%', 
-                background: activeVertical === 'admission' ? 'linear-gradient(90deg, #0066ff, #60a5fa)' : 'linear-gradient(90deg, #059669, #34d399)',
-                transition: 'width 0.4s ease'
-              }} />
+
+            {/* Payment Summary Card */}
+            <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              <div style={{ padding: '24px', borderBottom: '1px solid #f3f4f6' }}>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#111827' }}>Financial Ledger</h3>
+              </div>
+              <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {(!selectedStudent?.fee_records || selectedStudent.fee_records.length === 0) ? (
+                   <div style={{ color: '#6b7280', fontSize: '0.9rem', textAlign: 'center' }}>No fee records found.</div>
+                ) : selectedStudent.fee_records.map(record => (
+                  <div key={record.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: '0.9rem', color: '#4b5563', fontWeight: '600' }}>{record.fee_types?.name || 'Standard Fee'}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Status: {record.status}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#111827' }}>
+                        {record.currency} {record.total_amount}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: record.balance > 0 ? '#dc2626' : '#059669', fontWeight: '600' }}>
+                        Bal: {record.currency} {record.balance}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
+
           </div>
-        </div>
-
-        {/* Document Line Items Table */}
-        <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-          <div style={{ padding: '16px 22px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Required Document Line Items (`document_items`)
-            </span>
-            <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
-              Head Team Issue #4: Unique constraint enforced (`instance_id, document_name`)
-            </span>
-          </div>
-
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase' }}>
-                <th style={{ padding: '14px 22px' }}>Document Name & Notes</th>
-                <th style={{ padding: '14px 22px' }}>Target Deadline</th>
-                <th style={{ padding: '14px 22px' }}>Current Status</th>
-                <th style={{ padding: '14px 22px', textAlign: 'right' }}>Verify Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentChecklist.map((doc, index) => (
-                <tr key={doc.id} style={{ borderBottom: index < currentChecklist.length - 1 ? '1px solid #f1f5f9' : 'none', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = '#f8fafc'} onMouseOut={e => e.currentTarget.style.background = '#ffffff'}>
-                  
-                  <td style={{ padding: '16px 22px', maxWidth: '340px' }}>
-                    <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <FileText size={16} color={doc.status === 'Received' ? '#059669' : doc.status === 'Pending' ? '#f97316' : '#64748b'} />
-                      <span>{doc.name}</span>
-                    </div>
-                    <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px', fontStyle: 'italic' }}>
-                      Note: {doc.notes}
-                    </div>
-                  </td>
-
-                  <td style={{ padding: '16px 22px' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#475569', background: '#f1f5f9', padding: '4px 10px', borderRadius: '6px', fontWeight: '600' }}>
-                      <Clock size={13} /> {doc.deadline}
-                    </span>
-                  </td>
-
-                  <td style={{ padding: '16px 22px' }}>
-                    <span style={{ 
-                      background: doc.status === 'Received' ? '#ecfdf5' : doc.status === 'Pending' ? '#fff7ed' : doc.status === 'Waived' ? '#f1f5f9' : '#fef2f2', 
-                      color: doc.status === 'Received' ? '#059669' : doc.status === 'Pending' ? '#ea580c' : doc.status === 'Waived' ? '#475569' : '#dc2626',
-                      border: doc.status === 'Received' ? '1px solid #a7f3d0' : doc.status === 'Pending' ? '1px solid #fed7aa' : '1px solid #cbd5e1',
-                      padding: '4px 12px', 
-                      borderRadius: '999px', 
-                      fontSize: '0.78rem', 
-                      fontWeight: '700',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px'
-                    }}>
-                      {doc.status === 'Received' && <CheckCircle2 size={13} />}
-                      {doc.status === 'Pending' && <AlertCircle size={13} />}
-                      {doc.status}
-                    </span>
-                  </td>
-
-                  <td style={{ padding: '16px 22px', textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                      <button
-                        onClick={() => handleStatusToggle(doc.id, 'Received')}
-                        title="Mark Received"
-                        style={{ background: doc.status === 'Received' ? '#059669' : '#f0fdf4', color: doc.status === 'Received' ? '#ffffff' : '#059669', border: '1px solid #bbf7d0', padding: '6px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}
-                      >
-                        <Check size={13} /> Received
-                      </button>
-                      <button
-                        onClick={() => handleStatusToggle(doc.id, 'Pending')}
-                        title="Mark Pending"
-                        style={{ background: doc.status === 'Pending' ? '#ea580c' : '#fff7ed', color: doc.status === 'Pending' ? '#ffffff' : '#ea580c', border: '1px solid #fed7aa', padding: '6px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
-                      >
-                        Pending
-                      </button>
-                      <button
-                        onClick={() => handleStatusToggle(doc.id, 'Waived')}
-                        title="Mark Waived"
-                        style={{ background: doc.status === 'Waived' ? '#475569' : '#f1f5f9', color: doc.status === 'Waived' ? '#ffffff' : '#475569', border: '1px solid #cbd5e1', padding: '6px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
-                      >
-                        Waive
-                      </button>
-                    </div>
-                  </td>
-
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
       </div>
+
+      {/* Floating Chat Button */}
+      <div style={{ position: 'fixed', bottom: '32px', right: '32px', width: '56px', height: '56px', borderRadius: '50%', background: '#059669', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(5, 150, 105, 0.3)', cursor: 'pointer', zIndex: 100 }}>
+         <MessageSquare size={24} />
+      </div>
+
+      {/* Modals remain mostly the same structurally, just styling updates */}
+      {showDestModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="admin-card" style={{ width: '100%', maxWidth: '400px', padding: 0, overflow: 'hidden' }}>
+            <div className="admin-card-header" style={{ padding: '20px 24px', background: 'var(--admin-bg-body)', margin: 0 }}>
+              <h3 className="admin-card-title" style={{ margin: 0 }}>Add New Destination</h3>
+              <button onClick={() => setShowDestModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={20} color="var(--admin-text-muted)" /></button>
+            </div>
+            <form onSubmit={handleCreateDestination} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Country</label>
+                <input required className="admin-input" value={newDestCountry} onChange={e => setNewDestCountry(e.target.value)} placeholder="e.g. Canada" />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Education Level</label>
+                <select required className="admin-input" value={newDestLevel} onChange={e => setNewDestLevel(e.target.value)}>
+                  <option value="" disabled>Select Level...</option>
+                  <option value="Undergraduate">Undergraduate</option>
+                  <option value="Postgraduate">Postgraduate</option>
+                  <option value="Diploma">Diploma</option>
+                </select>
+              </div>
+              <button type="submit" className="admin-btn admin-btn-primary" style={{ padding: '12px', marginTop: '10px', width: '100%' }}>
+                Add Destination
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* REASSIGN BRANCH MODAL */}
+      {showReassignModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="admin-card" style={{ width: '100%', maxWidth: '400px', padding: 0, overflow: 'hidden' }}>
+            <div className="admin-card-header" style={{ padding: '20px 24px', background: 'var(--admin-bg-body)', margin: 0 }}>
+              <h3 className="admin-card-title" style={{ margin: 0 }}>Reassign Branch</h3>
+              <button onClick={() => setShowReassignModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}><X size={20} color="var(--admin-text-muted)" /></button>
+            </div>
+            <form onSubmit={handleReassignBranch} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <p style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: 'var(--admin-text-secondary)' }}>Select a new branch for <strong>{selectedStudent?.name}</strong>. Their data and checklists will transfer immediately.</p>
+              
+              <select
+                required
+                className="admin-input"
+                value={newBranchId}
+                onChange={e => setNewBranchId(e.target.value)}
+              >
+                <option value="" disabled>Select a Branch...</option>
+                {branchesList.map(b => (
+                  <option key={b.id} value={b.id}>{b.code} - {b.name}</option>
+                ))}
+              </select>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
+                <button type="button" onClick={() => setShowReassignModal(false)} className="admin-btn admin-btn-secondary">Cancel</button>
+                <button type="submit" disabled={!newBranchId} className="admin-btn admin-btn-primary" style={{ opacity: newBranchId ? 1 : 0.6, cursor: newBranchId ? 'pointer' : 'not-allowed' }}>Confirm Reassign</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT PROFILE MODAL */}
+      {showEditProfileModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, overflowY: 'auto' }}>
+          <div className="admin-card" style={{ width: '100%', maxWidth: '600px', padding: 0, overflow: 'hidden', margin: '40px auto' }}>
+            <div className="admin-card-header" style={{ padding: '20px 24px', background: 'var(--admin-bg-body)', margin: 0, display: 'flex', justifyContent: 'space-between' }}>
+              <h3 className="admin-card-title" style={{ margin: 0 }}>Edit Full Profile</h3>
+              <button onClick={() => setShowEditProfileModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}><X size={20} color="var(--admin-text-muted)" /></button>
+            </div>
+            <form onSubmit={handleUpdateProfile} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '70vh', overflowY: 'auto' }}>
+              <h4 style={{ margin: '0 0 -8px 0', fontSize: '0.95rem', color: 'var(--admin-primary)' }}>Personal Details</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Date of Birth</label>
+                  <input type="date" className="admin-input" value={editProfileForm.date_of_birth || ''} onChange={e => setEditProfileForm({...editProfileForm, date_of_birth: e.target.value})} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Nationality</label>
+                  <input className="admin-input" value={editProfileForm.nationality || ''} onChange={e => setEditProfileForm({...editProfileForm, nationality: e.target.value})} placeholder="e.g. Indian" />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Gender</label>
+                  <select className="admin-input" value={editProfileForm.gender || ''} onChange={e => setEditProfileForm({...editProfileForm, gender: e.target.value})}>
+                    <option value="">Select...</option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Marital Status</label>
+                  <select className="admin-input" value={editProfileForm.marital_status || ''} onChange={e => setEditProfileForm({...editProfileForm, marital_status: e.target.value})}>
+                    <option value="">Select...</option><option value="Single">Single</option><option value="Married">Married</option>
+                  </select>
+                </div>
+              </div>
+
+              <h4 style={{ margin: '16px 0 -8px 0', fontSize: '0.95rem', color: 'var(--admin-primary)' }}>Travel & Identity</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Passport Number</label>
+                  <input className="admin-input" value={editProfileForm.passport_number || ''} onChange={e => setEditProfileForm({...editProfileForm, passport_number: e.target.value})} placeholder="A1234567" />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Passport Expiry</label>
+                  <input type="date" className="admin-input" value={editProfileForm.passport_expiry || ''} onChange={e => setEditProfileForm({...editProfileForm, passport_expiry: e.target.value})} />
+                </div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Permanent Address</label>
+                  <textarea className="admin-input" value={editProfileForm.address || ''} onChange={e => setEditProfileForm({...editProfileForm, address: e.target.value})} rows={2} placeholder="Full address" />
+                </div>
+              </div>
+
+              <h4 style={{ margin: '16px 0 -8px 0', fontSize: '0.95rem', color: 'var(--admin-primary)' }}>Academic & Language</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Highest Qualification</label>
+                  <input className="admin-input" value={editProfileForm.highest_qualification || ''} onChange={e => setEditProfileForm({...editProfileForm, highest_qualification: e.target.value})} placeholder="e.g. Bachelor of Technology (2024)" />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>English Test</label>
+                  <select className="admin-input" value={editProfileForm.english_test_type || ''} onChange={e => setEditProfileForm({...editProfileForm, english_test_type: e.target.value})}>
+                    <option value="">Select...</option><option value="IELTS">IELTS</option><option value="PTE">PTE</option><option value="TOEFL">TOEFL</option><option value="Duolingo">Duolingo</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Overall Score</label>
+                  <input className="admin-input" value={editProfileForm.english_overall_score || ''} onChange={e => setEditProfileForm({...editProfileForm, english_overall_score: e.target.value})} placeholder="e.g. 7.5" />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
+                <button type="button" onClick={() => setShowEditProfileModal(false)} className="admin-btn admin-btn-secondary">Cancel</button>
+                <button type="submit" className="admin-btn admin-btn-primary">Save Profile</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* REQUEST DOCUMENT MODAL */}
+      {showAddDocModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="admin-card" style={{ width: '100%', maxWidth: '400px', padding: 0, overflow: 'hidden' }}>
+            <div className="admin-card-header" style={{ padding: '20px 24px', background: 'var(--admin-bg-body)', margin: 0 }}>
+              <h3 className="admin-card-title" style={{ margin: 0 }}>Request Document</h3>
+              <button onClick={() => setShowAddDocModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={20} color="var(--admin-text-muted)" /></button>
+            </div>
+            <form onSubmit={handleAddDocument} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Document Name</label>
+                <input required className="admin-input" value={newDocName} onChange={e => setNewDocName(e.target.value)} placeholder="e.g. 10th Marksheet" />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Instructions for Student (Optional)</label>
+                <textarea className="admin-input" value={newDocNotes} onChange={e => setNewDocNotes(e.target.value)} placeholder="e.g. Please upload a clear PDF" rows={3} />
+              </div>
+              <button type="submit" className="admin-btn admin-btn-primary" style={{ padding: '12px', marginTop: '10px', width: '100%' }}>
+                Add Request
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

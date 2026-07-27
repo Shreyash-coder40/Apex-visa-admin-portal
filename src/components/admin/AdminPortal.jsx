@@ -1,384 +1,380 @@
-import React, { useState } from 'react';
-import { LayoutDashboard, Users, UserPlus, DollarSign, History, Building2, Shield, LogOut, Sparkles, Globe, ChevronDown, Check, Bell } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LayoutDashboard, Users, UserPlus, DollarSign, History, LogOut, Loader2, Settings, Search, Menu, Bell, Sun, FileText, Globe, MessageSquare } from 'lucide-react';
 import DashboardOverview from './DashboardOverview';
 import LeadsManager from './LeadsManager';
 import StudentChecklistManager from './StudentChecklistManager';
 import FinancialLedger from './FinancialLedger';
+import ClientsList from './ClientsList';
+import DocumentsMasterList from './DocumentsMasterList';
 import ActivityTimeline from './ActivityTimeline';
+import ConfigurationManager from './ConfigurationManager';
+import NewApplicationModal from './NewApplicationModal';
+import { supabase } from '../../lib/supabaseClient';
+import '../../admin-theme.css';
 
-export default function AdminPortal({ onExitToPublic }) {
-  // Navigation tabs: 'overview', 'leads', 'students', 'ledger', 'activity'
-  const [activeTab, setActiveTab] = useState('overview');
+export default function AdminPortal() {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentRole, setCurrentRole] = useState(null);
+  const [currentBranch, setCurrentBranch] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [showNewAppModal, setShowNewAppModal] = useState(false);
 
-  // Role Simulator: 'super_admin' or 'branch_admin'
-  const [currentRole, setCurrentRole] = useState('super_admin');
+  const [pipelineCount, setPipelineCount] = useState(0);
+  const [documentsCount, setDocumentsCount] = useState(0);
 
-  // Branch Simulator: active branch for branch_admin scope
-  const [branches] = useState([
-    { code: 'TOR-01', name: 'Downtown Toronto HQ', address: '100 Bay St, Toronto, ON' },
-    { code: 'VAN-01', name: 'Vancouver Pacific Hub', address: '800 Burrard St, Vancouver, BC' },
-    { code: 'SYD-01', name: 'Sydney Global Branch', address: '200 George St, Sydney, NSW' },
-  ]);
-  const [currentBranch, setCurrentBranch] = useState(branches[0]);
+  useEffect(() => {
+    async function loadUserProfile() {
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
+        if (!user) return;
 
-  // Enrolled students shared state so conversion in LeadsManager appears in StudentChecklistManager
-  const [studentsList, setStudentsList] = useState([
-    {
-      id: 'S101',
-      name: 'Alex Rivera',
-      phone: '+1 (416) 890–1234',
-      email: 'alex.rivera@gmail.com',
-      branch: 'TOR-01',
-      destinations: [
-        {
-          country: '🇨🇦 Canada',
-          course: 'MSc Computer Science (University of Toronto)',
-          targetLevel: 'Post-Graduate',
-          admissionChecklist: [
-            { id: 'doc1', name: 'Undergraduate Degree Transcripts & Certificate', status: 'Received', deadline: '2026-08-01', notes: 'Verified official seal.' },
-            { id: 'doc2', name: 'Statement of Purpose (SOP) - Vistara Verified', status: 'Received', deadline: '2026-08-05', notes: 'Approved by Senior Counselor.' },
-            { id: 'doc3', name: '2 Academic Letters of Recommendation (LORs)', status: 'Pending', deadline: '2026-08-10', notes: 'Waiting for Professor response.' },
-            { id: 'doc4', name: 'IELTS Official Score Card (Overall 7.5+)', status: 'Received', deadline: '2026-08-12', notes: 'Band 8.0 confirmed.' },
-            { id: 'doc5', name: 'Updated Professional Resume / CV', status: 'Waived', deadline: '2026-08-15', notes: 'Fresh graduate, waived.' },
-          ],
-          visaChecklist: [
-            { id: 'vdoc1', name: 'Valid Passport Copy (6+ months validity remaining)', status: 'Received', deadline: '2026-08-20', notes: 'Passport valid till 2032.' },
-            { id: 'vdoc2', name: 'Guaranteed Investment Certificate (GIC) Proof ($20,635 CAD)', status: 'Pending', deadline: '2026-08-25', notes: 'Student opening Scotiabank GIC account.' },
-            { id: 'vdoc3', name: 'First Year Tuition Fee Payment Receipt from University', status: 'Pending', deadline: '2026-08-28', notes: 'Waiting for admission offer letter first.' },
-            { id: 'vdoc4', name: 'Upfront Medical Examination Report (eMedical)', status: 'Pending', deadline: '2026-09-01', notes: 'Booked appointment for Aug 18.' },
-            { id: 'vdoc5', name: 'Police Clearance Certificate (PCC)', status: 'Received', deadline: '2026-09-05', notes: 'Clean background check.' },
-          ]
+        // Fetch staff profile
+        const { data: staff, error: staffError } = await supabase
+          .from('staff_users')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+          
+        if (staffError && staffError.code !== 'PGRST116') throw staffError;
+
+        // Fetch assigned branch if exists
+        let branch = null;
+        if (staff) {
+          const { data: assignment, error: assignmentError } = await supabase
+            .from('branch_assignments')
+            .select(`
+              branch_id,
+              branches ( id, name, code )
+            `)
+            .eq('staff_user_id', staff.id)
+            .limit(1)
+            .maybeSingle();
+
+          if (assignment && assignment.branches) {
+            branch = assignment.branches;
+          }
         }
-      ]
-    },
-    {
-      id: 'S102',
-      name: 'Priya Sharma',
-      phone: '+1 (604) 555–0192',
-      email: 'priya.sharma99@outlook.com',
-      branch: 'TOR-01',
-      destinations: [
-        {
-          country: '🇦🇺 Australia',
-          course: 'Master of Data Science (University of Melbourne)',
-          targetLevel: 'Post-Graduate',
-          admissionChecklist: [
-            { id: 'doc6', name: 'Undergraduate Degree Transcripts & Certificate', status: 'Received', deadline: '2026-08-01', notes: 'Verified official seal.' },
-            { id: 'doc7', name: 'Statement of Purpose (SOP)', status: 'Received', deadline: '2026-08-05', notes: 'Complete.' },
-            { id: 'doc8', name: 'IELTS Score Card', status: 'Received', deadline: '2026-08-10', notes: 'Overall 8.0.' }
-          ],
-          visaChecklist: [
-            { id: 'vdoc6', name: 'Valid Passport Copy', status: 'Received', deadline: '2026-08-20', notes: 'Complete.' },
-            { id: 'vdoc7', name: 'Overseas Student Health Cover (OSHC) Proof', status: 'Received', deadline: '2026-08-25', notes: 'Allianz Policy Attached.' }
-          ]
+        
+        // If super admin and no branch, fetch the first branch in the system to act as HQ
+        if (!branch && staff?.role === 'super_admin') {
+          const { data: fallbackBranch } = await supabase.from('branches').select('id, name, code').limit(1).single();
+          if (fallbackBranch) {
+             branch = fallbackBranch;
+          }
         }
-      ]
-    },
-    {
-      id: 'S103',
-      name: 'Aarav Mehta',
-      phone: '+91 98200 12345',
-      email: 'aarav.m@tech.in',
-      branch: 'VAN-01',
-      destinations: [
-        {
-          country: '🇬🇧 UK',
-          course: 'MBA International Business (Imperial College)',
-          targetLevel: 'Post-Graduate',
-          admissionChecklist: [
-            { id: 'doc9', name: 'Undergraduate Transcripts & Degree', status: 'Received', deadline: '2026-08-01', notes: 'Complete.' },
-            { id: 'doc10', name: 'GMAT Official Score Card', status: 'Pending', deadline: '2026-08-15', notes: 'Booked exam for next week.' }
-          ],
-          visaChecklist: [
-            { id: 'vdoc8', name: 'Valid Passport Copy', status: 'Received', deadline: '2026-08-20', notes: 'Complete.' },
-            { id: 'vdoc9', name: 'CAS (Confirmation of Acceptance for Studies) Number', status: 'Pending', deadline: '2026-09-01', notes: 'Awaiting university letter.' }
-          ]
+
+        setCurrentUser(user);
+        setCurrentRole(staff?.role || 'super_admin');
+        setCurrentBranch(branch);
+
+        // Fetch counts for sidebar
+        let leadsQuery = supabase.from('leads').select('*', { count: 'exact', head: true });
+        if (staff?.role === 'branch_admin' && branch) {
+          leadsQuery = leadsQuery.eq('assigned_branch_id', branch.id);
         }
-      ]
+        const { count: lCount } = await leadsQuery;
+        setPipelineCount(lCount || 0);
+
+        const { data: docsData } = await supabase.from('document_items').select(`
+          id,
+          checklist_instances(
+            student_destinations(
+              students(
+                branch_id
+              )
+            )
+          )
+        `);
+        let dCount = 0;
+        if (staff?.role === 'branch_admin' && branch) {
+          dCount = (docsData || []).filter(d => 
+            d.checklist_instances?.student_destinations?.students?.branch_id === branch.id
+          ).length;
+        } else {
+          dCount = (docsData || []).length;
+        }
+        setDocumentsCount(dCount);
+
+      } catch (err) {
+        console.error('Error loading profile:', err);
+      } finally {
+        setLoading(false);
+      }
     }
-  ]);
+    loadUserProfile();
+  }, []);
 
-  const handleConvertToStudent = (convertedLead) => {
-    const newStudent = {
-      id: `S_${Date.now().toString().slice(-4)}`,
-      name: convertedLead.name,
-      phone: convertedLead.phone,
-      email: convertedLead.email,
-      branch: convertedLead.assignedBranch || currentBranch.code,
-      destinations: [
-        {
-          country: convertedLead.interestedCountry,
-          course: convertedLead.intendedCourse,
-          targetLevel: convertedLead.educationLevel,
-          admissionChecklist: [
-            { id: `doc_${Date.now()}_1`, name: 'Academic Transcripts & Degree Certificate', status: 'Pending', deadline: '2026-08-20', notes: 'Automatically spawned via database trigger.' },
-            { id: `doc_${Date.now()}_2`, name: 'Statement of Purpose (SOP)', status: 'Pending', deadline: '2026-08-25', notes: 'Awaiting student draft.' },
-            { id: `doc_${Date.now()}_3`, name: 'IELTS / English Proficiency Score', status: 'Pending', deadline: '2026-08-28', notes: 'Required before university submission.' }
-          ],
-          visaChecklist: [
-            { id: `vdoc_${Date.now()}_1`, name: 'Valid Passport Copy (All pages)', status: 'Pending', deadline: '2026-09-01', notes: 'Must have 6+ months validity.' },
-            { id: `vdoc_${Date.now()}_2`, name: 'Financial Proof / Tuition Fee Receipt', status: 'Pending', deadline: '2026-09-05', notes: 'Awaiting bank confirmation.' },
-            { id: `vdoc_${Date.now()}_3`, name: 'Medical & Police Clearance (PCC)', status: 'Pending', deadline: '2026-09-10', notes: 'Schedule appointment.' }
-          ]
-        }
-      ]
-    };
-    setStudentsList([newStudent, ...studentsList]);
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
   };
 
-  const navItems = [
-    { id: 'overview', label: 'Operations Command', icon: <LayoutDashboard size={18} /> },
-    { id: 'leads', label: 'Lead Triage Pool', icon: <UserPlus size={18} /> },
-    { id: 'students', label: 'Students & Checklists', icon: <Users size={18} /> },
-    { id: 'ledger', label: 'Financial Ledger', icon: <DollarSign size={18} /> },
-    { id: 'activity', label: 'Immutable Audit Trail', icon: <History size={18} /> },
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  const [selectedStudentId, setSelectedStudentId] = useState(null);
+
+  const navigateToStudent = (studentId) => {
+    setSelectedStudentId(studentId);
+    setActiveTab('application_detail');
+  };
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#f9fafb' }}>
+        <Loader2 className="animate-spin" size={48} color="var(--admin-primary)" />
+      </div>
+    );
+  }
+
+  // Define nav items here so we can remove web_cms
+  let navItems = [
+    { id: 'dashboard', category: 'OVERVIEW', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+    { id: 'pipeline', category: 'OPERATIONS', label: 'Pipeline', icon: <LayoutDashboard size={18} />, badge: pipelineCount > 0 ? pipelineCount : null },
+    { id: 'documents', category: 'OPERATIONS', label: 'Documents', icon: <FileText size={18} />, badge: documentsCount > 0 ? documentsCount : null },
+    { id: 'clients', category: 'OPERATIONS', label: 'Clients', icon: <Users size={18} /> },
+    { id: 'payments', category: 'COMMERCE', label: 'Payments', icon: <DollarSign size={18} /> },
+    { id: 'visa_types', category: 'COMMERCE', label: 'Visa Types', icon: <Globe size={18} /> },
+    { id: 'communication', category: 'GROWTH', label: 'Communication', icon: <MessageSquare size={18} /> },
+    { id: 'partners', category: 'GROWTH', label: 'Partners', icon: <Users size={18} /> },
+    { id: 'reports', category: 'INTELLIGENCE', label: 'Reports', icon: <History size={18} /> },
   ];
 
+  if (currentRole === 'super_admin') {
+    navItems.push({ id: 'config', category: 'ADMIN', label: 'Global Setup', icon: <Settings size={18} /> });
+  }
+
+  const groupedNav = navItems.reduce((acc, item) => {
+    acc[item.category] = acc[item.category] || [];
+    acc[item.category].push(item);
+    return acc;
+  }, {});
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', color: '#0f172a', fontFamily: 'Inter, sans-serif' }}>
+    <div className="admin-portal" style={{ display: 'flex', height: '100vh', overflow: 'hidden', backgroundColor: '#f9fafb', fontFamily: '"Inter", sans-serif' }}>
       
       {/* Sidebar Navigation */}
-      <aside style={{ 
-        width: '270px', 
-        background: '#0f172a', 
-        color: '#ffffff', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        justifyContent: 'space-between',
-        padding: '24px 16px',
-        borderRight: '1px solid #1e293b',
-        position: 'sticky',
-        top: 0,
-        height: '100vh',
-        boxSizing: 'border-box'
-      }}>
-        <div>
-          {/* Brand Logo & Title */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 8px', marginBottom: '32px' }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #0066ff 0%, #3b82f6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '1.2rem', color: '#ffffff', boxShadow: '0 4px 12px rgba(0, 102, 255, 0.4)' }}>
+      {isSidebarOpen && (
+        <aside style={{ 
+          width: '260px', 
+          backgroundColor: '#111827', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          height: '100vh',
+          zIndex: 20,
+          borderRight: '1px solid #1f2937'
+        }}>
+          {/* Logo Area */}
+          <div style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#f59e0b', color: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '1rem' }}>
               V
             </div>
-            <div>
-              <div style={{ fontWeight: '800', fontSize: '1.15rem', letterSpacing: '-0.3px', fontFamily: 'Outfit, sans-serif' }}>Vistara CRM</div>
-              <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Apex Visa Admin</div>
+            <div style={{ fontWeight: '700', fontSize: '1.2rem', color: '#ffffff', letterSpacing: '-0.02em' }}>
+              VisaCRM
             </div>
           </div>
 
-          {/* Navigation Links */}
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {navItems.map((item) => {
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    padding: '12px 14px',
-                    borderRadius: '10px',
-                    background: isActive ? '#0066ff' : 'transparent',
-                    color: isActive ? '#ffffff' : '#94a3b8',
-                    border: 'none',
-                    fontWeight: isActive ? '700' : '600',
-                    fontSize: '0.9rem',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    transition: 'all 0.2s',
-                    boxShadow: isActive ? '0 4px 14px rgba(0, 102, 255, 0.35)' : 'none'
-                  }}
-                  onMouseOver={e => !isActive && (e.currentTarget.style.color = '#ffffff')}
-                  onMouseOut={e => !isActive && (e.currentTarget.style.color = '#94a3b8')}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
+          <nav style={{ flex: 1, padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }}>
+            {Object.entries(groupedNav).map(([category, items]) => (
+              <div key={category}>
+                <div style={{ fontSize: '0.65rem', fontWeight: '700', color: '#6b7280', letterSpacing: '0.05em', marginBottom: '8px', paddingLeft: '12px' }}>
+                  {category}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  {items.map((item) => {
+                    const isActiveGroup = item.subItems && item.subItems.some(sub => sub.id === activeTab);
+                    const isDirectlyActive = activeTab === item.id;
+                    const isActive = isActiveGroup || isDirectlyActive;
+
+                    return (
+                      <React.Fragment key={item.id}>
+                        <button
+                          onClick={() => item.subItems ? null : setActiveTab(item.id)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            width: '100%',
+                            padding: '8px 12px',
+                            background: 'transparent',
+                            border: 'none',
+                            color: isActive ? '#f3f4f6' : '#9ca3af',
+                            cursor: item.subItems ? 'default' : 'pointer',
+                            fontSize: '0.85rem',
+                            fontWeight: '500',
+                            borderRadius: '6px',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isActive && !item.subItems) {
+                              e.currentTarget.style.color = '#f3f4f6';
+                              e.currentTarget.style.background = '#1f2937';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isActive && !item.subItems) {
+                              e.currentTarget.style.color = '#9ca3af';
+                              e.currentTarget.style.background = 'transparent';
+                            }
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            {item.icon}
+                            <span>{item.label}</span>
+                          </div>
+                          {item.badge && (
+                            <span style={{ background: '#1f2937', color: '#9ca3af', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '12px', fontWeight: '600' }}>
+                              {item.badge}
+                            </span>
+                          )}
+                        </button>
+
+                        {item.subItems && item.isExpanded && (
+                          <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '30px', marginTop: '2px', borderLeft: '1px solid #374151', paddingLeft: '12px', gap: '4px' }}>
+                            {item.subItems.map(sub => (
+                              <button
+                                key={sub.id}
+                                onClick={() => setActiveTab(sub.id)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  width: '100%',
+                                  padding: '6px 12px',
+                                  background: activeTab === sub.id ? '#1f2937' : 'transparent',
+                                  border: 'none',
+                                  color: activeTab === sub.id ? '#f3f4f6' : '#9ca3af',
+                                  cursor: 'pointer',
+                                  fontSize: '0.8rem',
+                                  fontWeight: activeTab === sub.id ? '600' : '500',
+                                  borderRadius: '6px',
+                                  position: 'relative'
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (activeTab !== sub.id) {
+                                    e.currentTarget.style.color = '#f3f4f6';
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (activeTab !== sub.id) {
+                                    e.currentTarget.style.color = '#9ca3af';
+                                  }
+                                }}
+                              >
+                                {activeTab === sub.id && (
+                                  <div style={{ position: 'absolute', left: '-13px', width: '2px', height: '16px', background: '#f59e0b', borderRadius: '0 2px 2px 0' }} />
+                                )}
+                                {sub.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </nav>
-        </div>
+        </aside>
+      )}
 
-        {/* Bottom Scope Card & Exit to Public Website */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          
-          <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderRadius: '12px', padding: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Shield size={13} color="#60a5fa" /> Active Security Role
-            </div>
-            <div style={{ fontSize: '0.9rem', fontWeight: '700', color: '#ffffff', textTransform: 'capitalize' }}>
-              {currentRole.replace('_', ' ')}
-            </div>
-            <div style={{ fontSize: '0.78rem', color: '#cbd5e1', marginTop: '2px' }}>
-              {currentRole === 'super_admin' ? 'All 3 Branches (Global)' : currentBranch.code}
-            </div>
-          </div>
-
-          <button
-            onClick={onExitToPublic}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              padding: '12px',
-              borderRadius: '10px',
-              background: 'rgba(255, 255, 255, 0.1)',
-              color: '#ffffff',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              fontWeight: '700',
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-            onMouseOver={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.18)'}
-            onMouseOut={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
-          >
-            <Globe size={16} />
-            <span>Exit to Public Website</span>
-          </button>
-
-        </div>
-      </aside>
-
-      {/* Main Container Area */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
+      {/* Main Content Layout */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         
-        {/* Top Header Bar with Role Switcher & Branch Selector */}
-        <header style={{ 
-          background: '#ffffff', 
-          borderBottom: '1px solid #e2e8f0', 
-          padding: '16px 32px', 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          position: 'sticky',
-          top: 0,
-          zIndex: 50,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', color: '#0f172a', fontFamily: 'Outfit, sans-serif' }}>
-              {navItems.find(i => i.id === activeTab)?.label}
-            </h1>
-            <span style={{ fontSize: '0.8rem', color: '#64748b', background: '#f1f5f9', padding: '3px 10px', borderRadius: '6px', fontWeight: '600' }}>
-              PRD v1.0 & Head Team Review Compliant
-            </span>
+        {/* Top Header */}
+        <header style={{ height: '72px', backgroundColor: 'var(--admin-bg-header)', borderBottom: '1px solid var(--admin-border-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', zIndex: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '24px', width: '100%' }}>
+            {!isSidebarOpen && (
+              <button onClick={() => setIsSidebarOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--admin-text-secondary)', cursor: 'pointer' }}>
+                <Menu size={20} />
+              </button>
+            )}
+            
+            {/* Minimalist Search Bar */}
+            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--admin-bg-body)', borderRadius: '8px', padding: '10px 16px', width: '400px', border: '1px solid var(--admin-border-light)' }}>
+              <Search size={16} color="var(--admin-text-muted)" style={{ marginRight: '10px' }} />
+              <input type="text" placeholder="Search applications, clients, payments..." style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: '0.85rem', width: '100%', color: 'var(--admin-text-primary)' }} />
+              <div style={{ background: 'white', border: '1px solid var(--admin-border-light)', borderRadius: '4px', padding: '2px 6px', fontSize: '0.65rem', color: 'var(--admin-text-muted)', fontWeight: '600' }}>⌘K</div>
+            </div>
           </div>
 
-          {/* Interactive Role Switcher & Branch Selector (Demonstrates RLS Simulation) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            
-            {/* Branch Selector (Active if Branch Admin or Super Admin inspection) */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Building2 size={16} color="#64748b" />
-              <select
-                value={currentBranch.code}
-                onChange={(e) => {
-                  const b = branches.find(br => br.code === e.target.value);
-                  if (b) setCurrentBranch(b);
-                }}
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  background: '#f8fafc',
-                  color: '#0f172a',
-                  fontWeight: '700',
-                  fontSize: '0.82rem',
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                {branches.map(b => (
-                  <option key={b.code} value={b.code}>{b.name} ({b.code})</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Role Switcher Button */}
-            <div style={{ display: 'flex', background: '#f1f5f9', padding: '3px', borderRadius: '8px', gap: '3px' }}>
-              <button
-                onClick={() => setCurrentRole('super_admin')}
-                style={{
-                  background: currentRole === 'super_admin' ? '#0066ff' : 'transparent',
-                  color: currentRole === 'super_admin' ? '#ffffff' : '#64748b',
-                  border: 'none',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  fontSize: '0.78rem',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-              >
-                Super Admin
-              </button>
-              <button
-                onClick={() => setCurrentRole('branch_admin')}
-                style={{
-                  background: currentRole === 'branch_admin' ? '#10b981' : 'transparent',
-                  color: currentRole === 'branch_admin' ? '#ffffff' : '#64748b',
-                  border: 'none',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  fontSize: '0.78rem',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-              >
-                Branch Admin
-              </button>
-            </div>
-
+            <button onClick={() => setShowNewAppModal(true)} className="admin-btn admin-btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
+              + New
+            </button>
+            <button style={{ background: 'transparent', border: 'none', color: 'var(--admin-text-secondary)', cursor: 'pointer' }}><Bell size={18} /></button>
+            <button style={{ background: 'transparent', border: 'none', color: 'var(--admin-text-secondary)', cursor: 'pointer' }}><Sun size={18} /></button>
+            <button onClick={handleLogout} title="Logout" style={{ background: 'transparent', border: 'none', color: 'var(--admin-text-secondary)', cursor: 'pointer' }}>
+              <LogOut size={18} />
+            </button>
           </div>
         </header>
 
-        {/* Dynamic Tab Views */}
-        <div style={{ padding: '32px', flex: 1 }}>
-          {activeTab === 'overview' && (
-            <DashboardOverview 
-              currentRole={currentRole} 
-              currentBranch={currentBranch} 
-              onNavigateTab={(tab) => setActiveTab(tab)} 
-            />
-          )}
-
-          {activeTab === 'leads' && (
-            <LeadsManager 
-              currentRole={currentRole} 
-              currentBranch={currentBranch}
-              onConvertToStudent={handleConvertToStudent}
-            />
-          )}
-
-          {activeTab === 'students' && (
-            <StudentChecklistManager 
-              currentRole={currentRole} 
-              currentBranch={currentBranch}
-              studentsList={studentsList}
-              onUpdateStudents={(list) => setStudentsList(list)}
-            />
-          )}
-
-          {activeTab === 'ledger' && (
-            <FinancialLedger 
-              currentRole={currentRole} 
-              currentBranch={currentBranch} 
-            />
-          )}
-
-          {activeTab === 'activity' && (
-            <ActivityTimeline 
-              currentRole={currentRole} 
-              currentBranch={currentBranch} 
-            />
-          )}
+        {/* Dynamic Page Header */}
+        <div style={{ padding: '24px 32px 0 32px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: '500', marginBottom: '8px' }}>
+            <span style={{ textTransform: 'capitalize' }}>Operations</span> / {activeTab.replace('_', ' ')}
+          </div>
         </div>
 
-      </main>
+        {/* Main Scrolling Area */}
+        <main style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
+          {activeTab === 'dashboard' && <DashboardOverview currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} />}
+          {activeTab === 'pipeline' && <LeadsManager currentRole={currentRole} currentBranch={currentBranch} currentUser={currentUser} showToast={showToast} />}
+          {activeTab === 'application_detail' && <StudentChecklistManager currentRole={currentRole} currentBranch={currentBranch} currentUser={currentUser} showToast={showToast} externalSelectedStudentId={selectedStudentId} setExternalSelectedStudentId={setSelectedStudentId} />}
+          {activeTab === 'clients' && <ClientsList currentRole={currentRole} currentBranch={currentBranch} onStudentClick={navigateToStudent} onAddClient={() => setShowNewAppModal(true)} />}
+          {activeTab === 'documents' && <DocumentsMasterList currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} onStudentClick={navigateToStudent} />}
+          {activeTab === 'payments' && <FinancialLedger currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} />}
+          {activeTab === 'reports' && <ActivityTimeline currentRole={currentRole} currentBranch={currentBranch} />}
+          {activeTab === 'config' && currentRole === 'super_admin' && <ConfigurationManager showToast={showToast} />}
+          
+          {['visa_types', 'communication', 'partners'].includes(activeTab) && (
+            <div style={{ padding: '60px', textAlign: 'center', background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
+              <Settings size={48} color="#9ca3af" style={{ margin: '0 auto 16px' }} />
+              <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#111827', margin: '0 0 8px 0' }}>Coming Soon</h2>
+              <p style={{ color: '#6b7280', margin: 0 }}>This module is currently under development.</p>
+            </div>
+          )}
+        </main>
+      </div>
 
+      {/* Global Toast */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: '32px', right: '32px', 
+          backgroundColor: toast.type === 'error' ? 'var(--admin-danger)' : 'var(--admin-text-primary)', 
+          color: 'white', padding: '12px 24px', borderRadius: '8px', 
+          boxShadow: 'var(--admin-shadow-lg)', fontWeight: '500', 
+          fontSize: '0.9rem', zIndex: 9999, animation: 'slideIn 0.3s ease-out', display: 'flex', alignItems: 'center', gap: '8px'
+        }}>
+          {toast.message}
+        </div>
+      )}
+
+      {showNewAppModal && (
+        <NewApplicationModal 
+          onClose={() => setShowNewAppModal(false)}
+          onSuccess={(newId) => {
+            setShowNewAppModal(false);
+            navigateToStudent(newId);
+          }}
+          currentBranch={currentBranch}
+          showToast={showToast}
+        />
+      )}
+
+      <style>{`
+        @keyframes slideIn {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }

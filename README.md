@@ -1,6 +1,8 @@
-# React + Vite
+# Apex Visa Admin Portal
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+**Live Demo:** [https://apex-crm-portal.vercel.app](https://apex-crm-portal.vercel.app)
+
+React + Vite CRM application for Apex Visa.
 
 Currently, two official plugins are available:
 

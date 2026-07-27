@@ -1,0 +1,341 @@
+/* 
+  admin-theme.css
+  VisaCRM Aesthetic Design System for Apex CRM Admin Portal
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  /* VisaCRM Palette */
+  --admin-bg-body: #f8fafc;        /* Light Gray/Off-white for main content */
+  --admin-bg-sidebar: #0f172a;     /* Deep Navy Blue for Sidebar */
+  --admin-bg-card: #ffffff;        /* Crisp White for Cards */
+  --admin-bg-header: #ffffff;      /* White Header */
+  
+  --admin-border-light: #e2e8f0;   /* Very subtle border for cards and tables */
+  --admin-border-focus: #fbbf24;   /* Golden yellow for focus states */
+  
+  --admin-text-primary: #0f172a;   /* Slate 900 for headings */
+  --admin-text-secondary: #475569; /* Slate 600 for body */
+  --admin-text-muted: #94a3b8;     /* Slate 400 for placeholders/metadata */
+  
+  /* Sidebar Text Colors */
+  --admin-sidebar-text: #94a3b8;       /* Unselected text */
+  --admin-sidebar-text-hover: #f1f5f9; /* Hover text */
+  --admin-sidebar-active-bg: #1e293b;  /* Active item background */
+  
+  /* Brand Accent */
+  --admin-primary: #f59e0b;        /* Golden Yellow (VisaCRM Brand) */
+  --admin-primary-hover: #d97706;
+  --admin-primary-light: #fef3c7;  
+  
+  /* Status Colors */
+  --admin-success: #10b981;        
+  --admin-success-bg: #ecfdf5;     
+  --admin-success-text: #047857;   
+  
+  --admin-warning: #f59e0b;        
+  --admin-warning-bg: #fffbeb;     
+  --admin-warning-text: #b45309;   
+  
+  --admin-danger: #ef4444;         
+  --admin-danger-bg: #fef2f2;      
+  --admin-danger-text: #b91c1c;    
+
+  /* Neutral Badges */
+  --admin-neutral-bg: #f1f5f9;
+  --admin-neutral-text: #475569;
+  
+  --admin-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --admin-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --admin-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+}
+
+/* Base resets specifically for admin route */
+.admin-portal {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--admin-bg-body);
+  color: var(--admin-text-secondary);
+  min-height: 100vh;
+  margin: 0;
+}
+
+.admin-portal h1, .admin-portal h2, .admin-portal h3, .admin-portal h4, .admin-portal h5 {
+  color: var(--admin-text-primary);
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+/* Card Component */
+.admin-card {
+  background-color: var(--admin-bg-card);
+  border: 1px solid var(--admin-border-light);
+  border-radius: 8px;
+  box-shadow: var(--admin-shadow-sm);
+  padding: 24px;
+}
+
+.admin-card-header {
+  border-bottom: 1px solid var(--admin-border-light);
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-card-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--admin-text-primary);
+}
+
+/* Kanban Board Layout */
+.kanban-board {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  padding-bottom: 20px;
+  height: calc(100vh - 160px);
+}
+
+.kanban-column {
+  background-color: #f1f5f9; /* Slightly darker than body for contrast */
+  border-radius: 12px;
+  min-width: 300px;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.kanban-column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  font-weight: 700;
+  color: var(--admin-text-secondary);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.kanban-column-count {
+  background: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  color: var(--admin-text-primary);
+  box-shadow: var(--admin-shadow-sm);
+}
+
+.kanban-card {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--admin-shadow-sm);
+  border: 1px solid var(--admin-border-light);
+  cursor: grab;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.kanban-card:hover {
+  box-shadow: var(--admin-shadow-md);
+  transform: translateY(-2px);
+}
+
+.kanban-card:active {
+  cursor: grabbing;
+}
+
+/* Buttons */
+.admin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+  font-family: 'Inter', sans-serif;
+}
+
+.admin-btn-primary {
+  background-color: var(--admin-text-primary); /* VisaCRM uses dark navy for primary buttons */
+  color: white;
+  box-shadow: var(--admin-shadow-sm);
+}
+
+.admin-btn-primary:hover {
+  background-color: #1e293b;
+}
+
+.admin-btn-secondary {
+  background-color: white;
+  border-color: var(--admin-border-light);
+  color: var(--admin-text-primary);
+  box-shadow: var(--admin-shadow-sm);
+}
+
+.admin-btn-secondary:hover {
+  background-color: #f1f5f9;
+}
+
+.admin-btn-danger {
+  background-color: white;
+  border-color: var(--admin-danger-bg);
+  color: var(--admin-danger);
+}
+
+.admin-btn-danger:hover {
+  background-color: var(--admin-danger-bg);
+}
+
+/* Badges */
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.admin-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.admin-badge-success { background-color: var(--admin-success-bg); color: var(--admin-success-text); border: 1px solid #d1fae5; }
+.admin-badge-success .admin-badge-dot { background-color: var(--admin-success); }
+
+.admin-badge-warning { background-color: var(--admin-warning-bg); color: var(--admin-warning-text); border: 1px solid #fef3c7; }
+.admin-badge-warning .admin-badge-dot { background-color: var(--admin-warning); }
+
+.admin-badge-danger { background-color: var(--admin-danger-bg); color: var(--admin-danger-text); border: 1px solid #fee2e2; }
+.admin-badge-danger .admin-badge-dot { background-color: var(--admin-danger); }
+
+.admin-badge-primary { background-color: #f1f5f9; color: var(--admin-text-primary); border: 1px solid var(--admin-border-light); }
+.admin-badge-primary .admin-badge-dot { background-color: var(--admin-text-primary); }
+
+.admin-badge-neutral { background-color: var(--admin-neutral-bg); color: var(--admin-neutral-text); border: 1px solid var(--admin-border-light); }
+
+/* Inputs */
+.admin-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--admin-border-light);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: var(--admin-text-primary);
+  background-color: white;
+  transition: border-color 0.15s;
+}
+
+.admin-input:focus {
+  outline: none;
+  border-color: var(--admin-text-primary);
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.1);
+}
+
+/* Tables */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.admin-table th {
+  padding: 16px;
+  border-bottom: 2px solid var(--admin-border-light);
+  color: var(--admin-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.admin-table td {
+  padding: 16px;
+  border-bottom: 1px solid var(--admin-border-light);
+  color: var(--admin-text-primary);
+  font-size: 0.875rem;
+}
+
+.admin-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+/* User Avatar (Circle with initials) */
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: white;
+}
+
+/* Split Pane Layout (VisaCRM Application Detail Style) */
+.admin-split-pane {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.admin-split-main {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.admin-split-sidebar {
+  flex: 1;
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Sidebar Navigation Items */
+.admin-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 6px;
+  color: var(--admin-sidebar-text);
+  font-weight: 500;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+}
+
+.admin-nav-item:hover {
+  color: var(--admin-sidebar-text-hover);
+}
+
+.admin-nav-item.active {
+  background-color: var(--admin-sidebar-active-bg);
+  color: var(--admin-primary);
+  font-weight: 600;
+  border-left: 3px solid var(--admin-primary);
+  border-radius: 0 6px 6px 0;
+}
