@@ -326,6 +326,32 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
             </button>
           </div>
         </div>
+
+        {/* Destination Tabs (Only show if multiple destinations exist) */}
+        {selectedStudent?.student_destinations && selectedStudent.student_destinations.length > 1 && (
+          <div style={{ display: 'flex', gap: '8px', marginTop: '20px' }}>
+            {selectedStudent.student_destinations.map(dest => (
+              <button 
+                key={dest.id}
+                onClick={() => setSelectedDestinationId(dest.id)}
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: '20px',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  border: '1px solid',
+                  backgroundColor: primaryDestination?.id === dest.id ? '#eff6ff' : '#ffffff',
+                  borderColor: primaryDestination?.id === dest.id ? '#3b82f6' : '#e5e7eb',
+                  color: primaryDestination?.id === dest.id ? '#1d4ed8' : '#4b5563',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {dest.destination_country} - {dest.target_education_level}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Main Content Split */}
