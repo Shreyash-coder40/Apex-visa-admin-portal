@@ -5,7 +5,6 @@ import LeadsManager from './LeadsManager';
 import StudentChecklistManager from './StudentChecklistManager';
 import FinancialLedger from './FinancialLedger';
 import ClientsList from './ClientsList';
-import DocumentsMasterList from './DocumentsMasterList';
 import ActivityTimeline from './ActivityTimeline';
 import ConfigurationManager from './ConfigurationManager';
 import MasterTemplatesManager from './MasterTemplatesManager';
@@ -23,7 +22,6 @@ export default function AdminPortal() {
   const [showNewAppModal, setShowNewAppModal] = useState(false);
 
   const [pipelineCount, setPipelineCount] = useState(0);
-  const [documentsCount, setDocumentsCount] = useState(0);
 
   useEffect(() => {
     async function loadUserProfile() {
@@ -38,7 +36,7 @@ export default function AdminPortal() {
           .select('*')
           .eq('id', user.id)
           .single();
-          
+
         if (staffError && staffError.code !== 'PGRST116') throw staffError;
 
         // Fetch assigned branch if exists
@@ -58,12 +56,12 @@ export default function AdminPortal() {
             branch = assignment.branches;
           }
         }
-        
+
         // If super admin and no branch, fetch the first branch in the system to act as HQ
         if (!branch && staff?.role === 'super_admin') {
           const { data: fallbackBranch } = await supabase.from('branches').select('id, name, code').limit(1).single();
           if (fallbackBranch) {
-             branch = fallbackBranch;
+            branch = fallbackBranch;
           }
         }
 
@@ -78,26 +76,6 @@ export default function AdminPortal() {
         }
         const { count: lCount } = await leadsQuery;
         setPipelineCount(lCount || 0);
-
-        const { data: docsData } = await supabase.from('document_items').select(`
-          id,
-          checklist_instances(
-            student_destinations(
-              students(
-                branch_id
-              )
-            )
-          )
-        `);
-        let dCount = 0;
-        if (staff?.role === 'branch_admin' && branch) {
-          dCount = (docsData || []).filter(d => 
-            d.checklist_instances?.student_destinations?.students?.branch_id === branch.id
-          ).length;
-        } else {
-          dCount = (docsData || []).length;
-        }
-        setDocumentsCount(dCount);
 
       } catch (err) {
         console.error('Error loading profile:', err);
@@ -138,7 +116,6 @@ export default function AdminPortal() {
   let navItems = [
     { id: 'dashboard', category: 'OVERVIEW', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
     { id: 'pipeline', category: 'OPERATIONS', label: 'Pipeline', icon: <LayoutDashboard size={18} />, badge: pipelineCount > 0 ? pipelineCount : null },
-    { id: 'documents', category: 'OPERATIONS', label: 'Documents', icon: <FileText size={18} />, badge: documentsCount > 0 ? documentsCount : null },
     { id: 'clients', category: 'OPERATIONS', label: 'Clients', icon: <Users size={18} /> },
     { id: 'payments', category: 'COMMERCE', label: 'Payments', icon: <DollarSign size={18} /> },
     { id: 'visa_types', category: 'COMMERCE', label: 'Visa Types', icon: <Globe size={18} /> },
@@ -160,14 +137,14 @@ export default function AdminPortal() {
 
   return (
     <div className="admin-portal" style={{ display: 'flex', height: '100vh', overflow: 'hidden', backgroundColor: '#f9fafb', fontFamily: '"Inter", sans-serif' }}>
-      
+
       {/* Sidebar Navigation */}
       {isSidebarOpen && (
-        <aside style={{ 
-          width: '260px', 
-          backgroundColor: '#111827', 
-          display: 'flex', 
-          flexDirection: 'column', 
+        <aside style={{
+          width: '260px',
+          backgroundColor: '#111827',
+          display: 'flex',
+          flexDirection: 'column',
           height: '100vh',
           zIndex: 20,
           borderRight: '1px solid #1f2937'
@@ -288,7 +265,7 @@ export default function AdminPortal() {
 
       {/* Main Content Layout */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        
+
         {/* Top Header */}
         <header style={{ height: '72px', backgroundColor: 'var(--admin-bg-header)', borderBottom: '1px solid var(--admin-border-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', zIndex: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '24px', width: '100%' }}>
@@ -297,7 +274,7 @@ export default function AdminPortal() {
                 <Menu size={20} />
               </button>
             )}
-            
+
             {/* Minimalist Search Bar */}
             <div style={{ display: 'flex', alignItems: 'center', background: 'var(--admin-bg-body)', borderRadius: '8px', padding: '10px 16px', width: '400px', border: '1px solid var(--admin-border-light)' }}>
               <Search size={16} color="var(--admin-text-muted)" style={{ marginRight: '10px' }} />
@@ -331,12 +308,11 @@ export default function AdminPortal() {
           {activeTab === 'pipeline' && <LeadsManager currentRole={currentRole} currentBranch={currentBranch} currentUser={currentUser} showToast={showToast} />}
           {activeTab === 'application_detail' && <StudentChecklistManager currentRole={currentRole} currentBranch={currentBranch} currentUser={currentUser} showToast={showToast} externalSelectedStudentId={selectedStudentId} setExternalSelectedStudentId={setSelectedStudentId} />}
           {activeTab === 'clients' && <ClientsList currentRole={currentRole} currentBranch={currentBranch} onStudentClick={navigateToStudent} onAddClient={() => setShowNewAppModal(true)} />}
-          {activeTab === 'documents' && <DocumentsMasterList currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} onStudentClick={navigateToStudent} />}
           {activeTab === 'payments' && <FinancialLedger currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} />}
           {activeTab === 'reports' && <ActivityTimeline currentRole={currentRole} currentBranch={currentBranch} />}
           {activeTab === 'config' && currentRole === 'super_admin' && <ConfigurationManager showToast={showToast} />}
           {activeTab === 'templates' && currentRole === 'super_admin' && <MasterTemplatesManager showToast={showToast} />}
-          
+
           {['visa_types', 'communication', 'partners'].includes(activeTab) && (
             <div style={{ padding: '60px', textAlign: 'center', background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
               <Settings size={48} color="#9ca3af" style={{ margin: '0 auto 16px' }} />
@@ -350,10 +326,10 @@ export default function AdminPortal() {
       {/* Global Toast */}
       {toast && (
         <div style={{
-          position: 'fixed', bottom: '32px', right: '32px', 
-          backgroundColor: toast.type === 'error' ? 'var(--admin-danger)' : 'var(--admin-text-primary)', 
-          color: 'white', padding: '12px 24px', borderRadius: '8px', 
-          boxShadow: 'var(--admin-shadow-lg)', fontWeight: '500', 
+          position: 'fixed', bottom: '32px', right: '32px',
+          backgroundColor: toast.type === 'error' ? 'var(--admin-danger)' : 'var(--admin-text-primary)',
+          color: 'white', padding: '12px 24px', borderRadius: '8px',
+          boxShadow: 'var(--admin-shadow-lg)', fontWeight: '500',
           fontSize: '0.9rem', zIndex: 9999, animation: 'slideIn 0.3s ease-out', display: 'flex', alignItems: 'center', gap: '8px'
         }}>
           {toast.message}
@@ -361,7 +337,7 @@ export default function AdminPortal() {
       )}
 
       {showNewAppModal && (
-        <NewApplicationModal 
+        <NewApplicationModal
           onClose={() => setShowNewAppModal(false)}
           onSuccess={(newId) => {
             setShowNewAppModal(false);
