@@ -27,10 +27,10 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [editProfileForm, setEditProfileForm] = useState({});
 
-  // Request Document Modal States
-  const [showAddDocModal, setShowAddDocModal] = useState(false);
-  const [newDocName, setNewDocName] = useState('');
-  const [newDocNotes, setNewDocNotes] = useState('');
+  // Search & Filter states
+  const [appSearchQuery, setAppSearchQuery] = useState('');
+  const [docSearchQuery, setDocSearchQuery] = useState('');
+  const [docStatusFilter, setDocStatusFilter] = useState('All');
 
   useEffect(() => {
     fetchStudents();
@@ -267,6 +267,8 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
           <AlertCircle size={40} color="var(--admin-text-muted)" style={{ margin: '0 auto 16px' }} />
           <h2 style={{ fontSize: '1.2rem', color: 'var(--admin-text-primary)', margin: '0 0 8px 0' }}>No Clients Found</h2>
           <p style={{ color: 'var(--admin-text-muted)', margin: 0 }}>Convert a lead to a student in the Pipeline to view details.</p>
+          <h2 style={{ fontSize: '1.2rem', color: '#111827', margin: '0 0 8px 0' }}>No Clients Found</h2>
+          <p style={{ color: '#6b7280', margin: 0 }}>Convert a lead to a student in the Pipeline to view details.</p>
         </div>
       </div>
     );
@@ -277,8 +279,25 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
       <div style={{ padding: '32px' }}>
         <div style={{ background: '#ffffff', borderRadius: '14px', padding: '40px', textAlign: 'center', border: '1px solid var(--admin-border-light)' }}>
           <Users size={40} color="var(--admin-text-muted)" style={{ margin: '0 auto 16px' }} />
-          <h2 style={{ fontSize: '1.2rem', color: 'var(--admin-text-primary)', margin: '0 0 8px 0' }}>No Application Selected</h2>
-          <p style={{ color: 'var(--admin-text-muted)', margin: 0 }}>Please select an application from the Clients directory or Pipeline to view full details.</p>
+          <h2 style={{ fontSize: '1.2rem', color: '#111827', margin: '0 0 8px 0' }}>No Application Selected</h2>
+          <p style={{ color: '#6b7280', margin: '0 0 20px 0' }}>Select an application below or from the Clients directory/Pipeline.</p>
+          <div style={{ maxWidth: '400px', margin: '0 auto' }}>
+            <select 
+              onChange={(e) => {
+                if (e.target.value) {
+                  if (setExternalSelectedStudentId) setExternalSelectedStudentId(e.target.value);
+                  else setLocalSelectedStudentId(e.target.value);
+                }
+              }} 
+              className="admin-input" 
+              style={{ width: '100%', padding: '10px' }}
+            >
+              <option value="">Choose Application...</option>
+              {studentsList.map(s => (
+                <option key={s.id} value={s.id}>{s.name || s.leads?.name} ({s.education_level || 'General'})</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
     );
@@ -287,6 +306,33 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
       
+      {/* Top Application Switcher Bar */}
+      <div style={{ background: '#ffffff', border: '1px solid var(--admin-border-light)', borderRadius: '10px', padding: '12px 20px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '260px' }}>
+          <Search size={16} color="var(--admin-text-muted)" />
+          <select
+            value={selectedStudentId || ''}
+            onChange={(e) => {
+              if (e.target.value) {
+                if (setExternalSelectedStudentId) setExternalSelectedStudentId(e.target.value);
+                else setLocalSelectedStudentId(e.target.value);
+              }
+            }}
+            className="admin-input"
+            style={{ width: '100%', background: '#f9fafb', fontSize: '0.85rem', fontWeight: '600' }}
+          >
+            {matchingStudents.map(s => (
+              <option key={s.id} value={s.id}>
+                {s.name || s.leads?.name || 'Unnamed Client'} — APP-{s.id.substring(0,4).toUpperCase()}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div style={{ fontSize: '0.8rem', color: 'var(--admin-text-secondary)', fontWeight: '500' }}>
+          Showing 1 of {studentsList.length} total client files
+        </div>
+      </div>
+
       {/* Header Section */}
       <div style={{ marginBottom: '32px' }}>
         <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '8px' }}>
@@ -414,9 +460,9 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
 
             {/* Documents Card */}
             <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-              <div style={{ padding: '24px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ padding: '24px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                 <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#111827' }}>Documents</h3>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                   <div style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: '500' }}>{completedDocs} of {currentChecklist.length || 0} approved</div>
                   <button 
                     onClick={() => setShowAddDocModal(true)}
@@ -439,11 +485,41 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
                 </div>
               </div>
               
+              {/* Document Search & Filter Controls */}
+              <div style={{ padding: '16px 24px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+                  <Search size={14} color="#9ca3af" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+                  <input
+                    type="text"
+                    placeholder="Search documents by name..."
+                    value={docSearchQuery}
+                    onChange={(e) => setDocSearchQuery(e.target.value)}
+                    style={{ width: '100%', padding: '6px 10px 6px 30px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.8rem', background: '#ffffff' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Filter size={14} color="#9ca3af" />
+                  <select
+                    value={docStatusFilter}
+                    onChange={(e) => setDocStatusFilter(e.target.value)}
+                    style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.8rem', background: '#ffffff' }}
+                  >
+                    <option value="All">All Statuses</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Received">Received</option>
+                    <option value="Rejected">Rejected</option>
+                    <option value="Waived">Waived</option>
+                  </select>
+                </div>
+              </div>
+              
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {currentChecklist.length === 0 ? (
-                  <div style={{ padding: '32px', textAlign: 'center', color: '#6b7280', fontSize: '0.9rem' }}>No documents configured for this checklist.</div>
-                ) : currentChecklist.map((doc, idx) => (
-                  <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: idx !== currentChecklist.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                {filteredChecklist.length === 0 ? (
+                  <div style={{ padding: '32px', textAlign: 'center', color: '#6b7280', fontSize: '0.9rem' }}>
+                    {currentChecklist.length === 0 ? 'No documents configured for this checklist.' : 'No documents match the search/filter criteria.'}
+                  </div>
+                ) : filteredChecklist.map((doc, idx) => (
+                  <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: idx !== filteredChecklist.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                       <div style={{ width: '40px', height: '40px', background: '#f3f4f6', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', fontWeight: '700', fontSize: '0.7rem' }}>
                         DOC
