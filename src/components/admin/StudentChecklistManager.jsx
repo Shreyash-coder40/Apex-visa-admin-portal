@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, FileCheck, CheckCircle2, AlertCircle, Clock, Plus, ArrowRight, ShieldCheck, FileText, Check, X, Award, Globe, Building2, Loader2, DollarSign, Download, MessageSquare, MoreHorizontal, Calendar, MapPin, Key } from 'lucide-react';
+import { Users, FileCheck, CheckCircle2, AlertCircle, Clock, Plus, ArrowRight, ShieldCheck, FileText, Check, X, Award, Globe, Building2, Loader2, DollarSign, Download, MessageSquare, MoreHorizontal, Calendar, MapPin, Key, Search, Filter } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import StudentTimelineView from './StudentTimelineView';
 
@@ -26,6 +26,11 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
   // Edit Profile Modal States
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [editProfileForm, setEditProfileForm] = useState({});
+
+  // Request Document Modal States
+  const [showAddDocModal, setShowAddDocModal] = useState(false);
+  const [newDocName, setNewDocName] = useState('');
+  const [newDocNotes, setNewDocNotes] = useState('');
 
   // Search & Filter states
   const [appSearchQuery, setAppSearchQuery] = useState('');
@@ -87,6 +92,12 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
   const primaryDestination = selectedStudent?.student_destinations?.find(d => d.id === selectedDestinationId) || selectedStudent?.student_destinations?.[0];
   const currentChecklistInstance = primaryDestination?.checklist_instances?.find(c => c.vertical === activeVertical);
   const currentChecklist = currentChecklistInstance?.document_items || [];
+
+  const filteredChecklist = currentChecklist.filter(d => {
+    const nameMatch = !docSearchQuery || d.document_name?.toLowerCase().includes(docSearchQuery.toLowerCase());
+    const statusMatch = docStatusFilter === 'All' || d.status === docStatusFilter;
+    return nameMatch && statusMatch;
+  });
 
   const completedDocs = currentChecklist.filter(d => d.status === 'Received' || d.status === 'Waived').length;
   const progressPct = currentChecklist.length > 0 ? Math.round((completedDocs / currentChecklist.length) * 100) : 0;
@@ -251,6 +262,12 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
       if (showToast) showToast('Failed to request document.', 'error');
     }
   };
+
+  const matchingStudents = studentsList.filter(s => {
+    if (!appSearchQuery) return true;
+    const term = appSearchQuery.toLowerCase();
+    return (s.name || s.leads?.name || '').toLowerCase().includes(term) || (s.email || s.leads?.email || '').toLowerCase().includes(term);
+  });
 
   if (loading) {
     return (
