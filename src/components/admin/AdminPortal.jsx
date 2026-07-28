@@ -9,6 +9,7 @@ import DocumentsMasterList from './DocumentsMasterList';
 import ActivityTimeline from './ActivityTimeline';
 import ConfigurationManager from './ConfigurationManager';
 import MasterTemplatesManager from './MasterTemplatesManager';
+import VisaTypesManager from './VisaTypesManager';
 import NewApplicationModal from './NewApplicationModal';
 import { supabase } from '../../lib/supabaseClient';
 import '../../admin-theme.css';
@@ -334,10 +335,11 @@ export default function AdminPortal() {
           {activeTab === 'documents' && <DocumentsMasterList currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} onStudentClick={navigateToStudent} />}
           {activeTab === 'payments' && <FinancialLedger currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} />}
           {activeTab === 'reports' && <ActivityTimeline currentRole={currentRole} currentBranch={currentBranch} />}
+          {activeTab === 'visa_types' && <VisaTypesManager currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} />}
           {activeTab === 'config' && currentRole === 'super_admin' && <ConfigurationManager showToast={showToast} />}
           {activeTab === 'templates' && currentRole === 'super_admin' && <MasterTemplatesManager showToast={showToast} />}
           
-          {['visa_types', 'communication', 'partners'].includes(activeTab) && (
+          {['communication', 'partners'].includes(activeTab) && (
             <div style={{ padding: '60px', textAlign: 'center', background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
               <Settings size={48} color="#9ca3af" style={{ margin: '0 auto 16px' }} />
               <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#111827', margin: '0 0 8px 0' }}>Coming Soon</h2>
