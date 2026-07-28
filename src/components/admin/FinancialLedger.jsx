@@ -260,6 +260,12 @@ export default function FinancialLedger({ currentRole, currentBranch, showToast 
     };
   });
 
+  const totalInvoiced = processedStudents.reduce((sum, s) => sum + s.totalOwed, 0);
+  const totalRevenue = processedStudents.reduce((sum, s) => sum + s.totalPaid, 0);
+  const pendingRevenue = processedStudents.reduce((sum, s) => sum + s.totalBalance, 0);
+  const totalRefundsAmount = globalRefunds.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  const collectionRate = totalInvoiced > 0 ? Math.round((totalRevenue / totalInvoiced) * 100) : 0;
+
   const filteredStudents = processedStudents.filter(student => {
     const sName = (student.name || student.leads?.name || '').toLowerCase();
     const matchesSearch = sName.includes(searchTerm.toLowerCase());
@@ -303,6 +309,67 @@ export default function FinancialLedger({ currentRole, currentBranch, showToast 
             <Plus size={16} /> Assign Fee
           </button>
         </div>
+      </div>
+
+      {/* 4 Financial Metric Cards (Top Section) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+        
+        {/* Card 1: Estimated Revenue (Total Invoiced) */}
+        <div className="admin-card" style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid var(--admin-border-light)', padding: '20px 24px', boxShadow: 'var(--admin-shadow-sm)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)' }}>Estimated Revenue</span>
+            <CreditCard size={18} color="var(--admin-text-secondary)" />
+          </div>
+          <div style={{ fontSize: '1.8rem', fontWeight: '800', color: 'var(--admin-text-primary)', letterSpacing: '-0.02em', marginBottom: '6px' }}>
+            ${totalInvoiced.toLocaleString()}
+          </div>
+          <div style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--admin-text-muted)' }}>
+            Gross Accounts Receivable
+          </div>
+        </div>
+
+        {/* Card 2: Total Revenue Generated */}
+        <div className="admin-card" style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid var(--admin-border-light)', padding: '20px 24px', boxShadow: 'var(--admin-shadow-sm)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-success-text)' }}>Total Revenue Generated</span>
+            <CheckCircle2 size={18} color="var(--admin-success)" />
+          </div>
+          <div style={{ fontSize: '1.8rem', fontWeight: '800', color: 'var(--admin-success)', letterSpacing: '-0.02em', marginBottom: '6px' }}>
+            ${totalRevenue.toLocaleString()}
+          </div>
+          <div style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--admin-success-text)' }}>
+            ✓ Cleared Collections
+          </div>
+        </div>
+
+        {/* Card 3: Pending Revenue */}
+        <div className="admin-card" style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid var(--admin-border-light)', padding: '20px 24px', boxShadow: 'var(--admin-shadow-sm)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-warning-text)' }}>Pending Revenue</span>
+            <AlertCircle size={18} color="var(--admin-warning)" />
+          </div>
+          <div style={{ fontSize: '1.8rem', fontWeight: '800', color: 'var(--admin-warning)', letterSpacing: '-0.02em', marginBottom: '6px' }}>
+            ${pendingRevenue.toLocaleString()}
+          </div>
+          <div style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--admin-warning-text)' }}>
+            Pending Collections
+          </div>
+        </div>
+
+        {/* Card 4: Overall Collection Statistics */}
+        <div className="admin-card" style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid var(--admin-border-light)', padding: '20px 24px', boxShadow: 'var(--admin-shadow-sm)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-danger-text)' }}>Overall Collection Statistics</span>
+            <RefreshCw size={18} color="var(--admin-danger)" />
+          </div>
+          <div style={{ fontSize: '1.8rem', fontWeight: '800', color: 'var(--admin-danger)', letterSpacing: '-0.02em', marginBottom: '6px' }}>
+            ${totalRefundsAmount.toLocaleString()}
+          </div>
+          <div style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--admin-danger-text)' }}>
+            Logged Refunds ({globalRefunds.length}) • {collectionRate}% Collection Rate
+          </div>
+        </div>
+
       </div>
 
       {/* Tabs */}
