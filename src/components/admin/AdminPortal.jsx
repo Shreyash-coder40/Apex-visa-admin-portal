@@ -22,6 +22,7 @@ export default function AdminPortal() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showNewAppModal, setShowNewAppModal] = useState(false);
   const [pipelineCount, setPipelineCount] = useState(0);
+  const [documentsCount, setDocumentsCount] = useState(0);
 
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [globalSearchResults, setGlobalSearchResults] = useState({ clients: [], leads: [] });
