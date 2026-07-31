@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, UserPlus, CheckCircle2, DollarSign, ArrowUpRight, TrendingUp, AlertCircle, ShieldCheck, Loader2, Clock, FileText, ArrowRight } from 'lucide-react';
+import { Users, UserPlus, CheckCircle2, DollarSign, ArrowUpRight, TrendingUp, AlertCircle, ShieldCheck, Loader2, Clock, FileText, ArrowRight, Search } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 
 export default function DashboardOverview({ currentRole, currentBranch, onNavigateTab }) {
@@ -14,7 +14,16 @@ export default function DashboardOverview({ currentRole, currentBranch, onNaviga
     totalRevenue: 0
   });
   const [upcomingDeadlines, setUpcomingDeadlines] = useState([]);
+  const [deadlineSearch, setDeadlineSearch] = useState('');
   const [loading, setLoading] = useState(true);
+
+  const filteredDeadlines = upcomingDeadlines.filter(doc => {
+    if (!deadlineSearch) return true;
+    const term = deadlineSearch.toLowerCase();
+    const docName = doc.document_name || '';
+    const studentName = doc.checklist_instances?.student_destinations?.students?.name || '';
+    return docName.toLowerCase().includes(term) || studentName.toLowerCase().includes(term);
+  });
 
   useEffect(() => {
     async function fetchStats() {
@@ -223,21 +232,31 @@ export default function DashboardOverview({ currentRole, currentBranch, onNaviga
 
             {/* Critical Deadlines */}
             <div className="admin-card" style={{ padding: 0 }}>
-              <div className="admin-card-header" style={{ padding: '24px', borderBottom: '1px solid var(--admin-border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 className="admin-card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="admin-card-header" style={{ padding: '20px 24px', borderBottom: '1px solid var(--admin-border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <h3 className="admin-card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                   <AlertCircle size={18} color="var(--admin-danger)" /> Document Deadlines
                 </h3>
-                <button className="admin-btn admin-btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>View All</button>
               </div>
               
-              {upcomingDeadlines.length === 0 ? (
+              <div style={{ padding: '12px 20px', background: 'var(--admin-bg-body)', borderBottom: '1px solid var(--admin-border-light)', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <Search size={14} color="var(--admin-text-muted)" />
+                <input 
+                  type="text" 
+                  placeholder="Filter deadlines by student or doc..."
+                  value={deadlineSearch}
+                  onChange={(e) => setDeadlineSearch(e.target.value)}
+                  style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', fontSize: '0.8rem', color: 'var(--admin-text-primary)' }}
+                />
+              </div>
+
+              {filteredDeadlines.length === 0 ? (
                 <div style={{ padding: '40px', textAlign: 'center', color: 'var(--admin-text-muted)' }}>
                   <CheckCircle2 size={32} color="var(--admin-success)" style={{ margin: '0 auto 12px' }} />
-                  <p style={{ margin: 0, fontWeight: '500' }}>No pending deadlines approaching.</p>
+                  <p style={{ margin: 0, fontWeight: '500' }}>No pending deadlines match your criteria.</p>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {upcomingDeadlines.map((doc, idx) => {
+                  {filteredDeadlines.map((doc, idx) => {
                     const studentName = doc.checklist_instances?.student_destinations?.students?.name || 'Unknown Student';
                     const isOverdue = new Date(doc.deadline_date) < new Date();
                     

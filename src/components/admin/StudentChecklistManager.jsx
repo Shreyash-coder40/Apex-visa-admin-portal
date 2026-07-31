@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, FileCheck, CheckCircle2, AlertCircle, Clock, Plus, ArrowRight, ShieldCheck, FileText, Check, X, Award, Globe, Building2, Loader2, DollarSign, Download, MessageSquare, MoreHorizontal, Calendar, MapPin, Key, SquarePen } from 'lucide-react';
+import { Users, FileCheck, CheckCircle2, AlertCircle, Clock, Plus, ArrowRight, ShieldCheck, FileText, Check, X, Award, Globe, Building2, Loader2, DollarSign, Download, MessageSquare, MoreHorizontal, Calendar, MapPin, Key, Search, Filter } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import StudentTimelineView from './StudentTimelineView';
 
@@ -31,6 +31,11 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
   const [showAddDocModal, setShowAddDocModal] = useState(false);
   const [newDocName, setNewDocName] = useState('');
   const [newDocNotes, setNewDocNotes] = useState('');
+
+  // Search & Filter states
+  const [appSearchQuery, setAppSearchQuery] = useState('');
+  const [docSearchQuery, setDocSearchQuery] = useState('');
+  const [docStatusFilter, setDocStatusFilter] = useState('All');
 
   useEffect(() => {
     fetchStudents();
@@ -87,6 +92,12 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
   const primaryDestination = selectedStudent?.student_destinations?.find(d => d.id === selectedDestinationId) || selectedStudent?.student_destinations?.[0];
   const currentChecklistInstance = primaryDestination?.checklist_instances?.find(c => c.vertical === activeVertical);
   const currentChecklist = currentChecklistInstance?.document_items || [];
+
+  const filteredChecklist = currentChecklist.filter(d => {
+    const nameMatch = !docSearchQuery || d.document_name?.toLowerCase().includes(docSearchQuery.toLowerCase());
+    const statusMatch = docStatusFilter === 'All' || d.status === docStatusFilter;
+    return nameMatch && statusMatch;
+  });
 
   const completedDocs = currentChecklist.filter(d => d.status === 'Received' || d.status === 'Waived').length;
   const progressPct = currentChecklist.length > 0 ? Math.round((completedDocs / currentChecklist.length) * 100) : 0;
@@ -252,6 +263,12 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
     }
   };
 
+  const matchingStudents = studentsList.filter(s => {
+    if (!appSearchQuery) return true;
+    const term = appSearchQuery.toLowerCase();
+    return (s.name || s.leads?.name || '').toLowerCase().includes(term) || (s.email || s.leads?.email || '').toLowerCase().includes(term);
+  });
+
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
@@ -267,6 +284,8 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
           <AlertCircle size={40} color="var(--admin-text-muted)" style={{ margin: '0 auto 16px' }} />
           <h2 style={{ fontSize: '1.2rem', color: 'var(--admin-text-primary)', margin: '0 0 8px 0' }}>No Clients Found</h2>
           <p style={{ color: 'var(--admin-text-muted)', margin: 0 }}>Convert a lead to a student in the Pipeline to view details.</p>
+          <h2 style={{ fontSize: '1.2rem', color: '#111827', margin: '0 0 8px 0' }}>No Clients Found</h2>
+          <p style={{ color: '#6b7280', margin: 0 }}>Convert a lead to a student in the Pipeline to view details.</p>
         </div>
       </div>
     );
@@ -277,8 +296,25 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
       <div style={{ padding: '32px' }}>
         <div style={{ background: '#ffffff', borderRadius: '14px', padding: '40px', textAlign: 'center', border: '1px solid var(--admin-border-light)' }}>
           <Users size={40} color="var(--admin-text-muted)" style={{ margin: '0 auto 16px' }} />
-          <h2 style={{ fontSize: '1.2rem', color: 'var(--admin-text-primary)', margin: '0 0 8px 0' }}>No Application Selected</h2>
-          <p style={{ color: 'var(--admin-text-muted)', margin: 0 }}>Please select an application from the Clients directory or Pipeline to view full details.</p>
+          <h2 style={{ fontSize: '1.2rem', color: '#111827', margin: '0 0 8px 0' }}>No Application Selected</h2>
+          <p style={{ color: '#6b7280', margin: '0 0 20px 0' }}>Select an application below or from the Clients directory/Pipeline.</p>
+          <div style={{ maxWidth: '400px', margin: '0 auto' }}>
+            <select 
+              onChange={(e) => {
+                if (e.target.value) {
+                  if (setExternalSelectedStudentId) setExternalSelectedStudentId(e.target.value);
+                  else setLocalSelectedStudentId(e.target.value);
+                }
+              }} 
+              className="admin-input" 
+              style={{ width: '100%', padding: '10px' }}
+            >
+              <option value="">Choose Application...</option>
+              {studentsList.map(s => (
+                <option key={s.id} value={s.id}>{s.name || s.leads?.name} ({s.education_level || 'General'})</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
     );
@@ -286,6 +322,33 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+      
+      {/* Top Application Switcher Bar */}
+      <div style={{ background: '#ffffff', border: '1px solid var(--admin-border-light)', borderRadius: '10px', padding: '12px 20px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '260px' }}>
+          <Search size={16} color="var(--admin-text-muted)" />
+          <select
+            value={selectedStudentId || ''}
+            onChange={(e) => {
+              if (e.target.value) {
+                if (setExternalSelectedStudentId) setExternalSelectedStudentId(e.target.value);
+                else setLocalSelectedStudentId(e.target.value);
+              }
+            }}
+            className="admin-input"
+            style={{ width: '100%', background: '#f9fafb', fontSize: '0.85rem', fontWeight: '600' }}
+          >
+            {matchingStudents.map(s => (
+              <option key={s.id} value={s.id}>
+                {s.name || s.leads?.name || 'Unnamed Client'} — APP-{s.id.substring(0,4).toUpperCase()}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div style={{ fontSize: '0.8rem', color: 'var(--admin-text-secondary)', fontWeight: '500' }}>
+          Showing 1 of {studentsList.length} total client files
+        </div>
+      </div>
 
       {/* Header Section */}
       <div style={{ marginBottom: '32px' }}>
@@ -406,32 +469,98 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
             </div>
           </div>
 
-          {/* Documents Card */}
-          <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <div style={{ padding: '24px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#111827' }}>Documents</h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: '500' }}>{completedDocs} of {currentChecklist.length || 0} approved</div>
-                <button
-                  onClick={() => setShowAddDocModal(true)}
-                  style={{ background: 'var(--admin-bg-body)', border: '1px solid var(--admin-border-light)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: 'var(--admin-text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Plus size={14} /> Request Document
-                </button>
-                <button
-                  onClick={() => {
-                    if (!selectedStudent?.invite_code) {
-                      showToast('Please generate an invite code first', 'error');
-                      return;
-                    }
-                    const link = `${window.location.origin}/upload/${selectedStudent.invite_code}`;
-                    navigator.clipboard.writeText(link);
-                    if (showToast) showToast('Secure Upload Link copied to clipboard!');
-                  }}
-                  style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#0f172a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Key size={14} /> Copy Upload Link
-                </button>
+            {/* Documents Card */}
+            <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              <div style={{ padding: '24px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#111827' }}>Documents</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: '500' }}>{completedDocs} of {currentChecklist.length || 0} approved</div>
+                  <button 
+                    onClick={() => setShowAddDocModal(true)}
+                    style={{ background: 'var(--admin-bg-body)', border: '1px solid var(--admin-border-light)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: 'var(--admin-text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Plus size={14} /> Request Document
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (!selectedStudent?.invite_code) {
+                        showToast('Please generate an invite code first', 'error');
+                        return;
+                      }
+                      const link = `${window.location.origin}/upload/${selectedStudent.invite_code}`;
+                      navigator.clipboard.writeText(link);
+                      if (showToast) showToast('Secure Upload Link copied to clipboard!');
+                    }}
+                    style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#0f172a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Key size={14} /> Copy Upload Link
+                  </button>
+                </div>
               </div>
-            </div>
+              
+              {/* Document Search & Filter Controls */}
+              <div style={{ padding: '16px 24px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+                  <Search size={14} color="#9ca3af" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+                  <input
+                    type="text"
+                    placeholder="Search documents by name..."
+                    value={docSearchQuery}
+                    onChange={(e) => setDocSearchQuery(e.target.value)}
+                    style={{ width: '100%', padding: '6px 10px 6px 30px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.8rem', background: '#ffffff' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Filter size={14} color="#9ca3af" />
+                  <select
+                    value={docStatusFilter}
+                    onChange={(e) => setDocStatusFilter(e.target.value)}
+                    style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.8rem', background: '#ffffff' }}
+                  >
+                    <option value="All">All Statuses</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Received">Received</option>
+                    <option value="Rejected">Rejected</option>
+                    <option value="Waived">Waived</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {filteredChecklist.length === 0 ? (
+                  <div style={{ padding: '32px', textAlign: 'center', color: '#6b7280', fontSize: '0.9rem' }}>
+                    {currentChecklist.length === 0 ? 'No documents configured for this checklist.' : 'No documents match the search/filter criteria.'}
+                  </div>
+                ) : filteredChecklist.map((doc, idx) => (
+                  <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: idx !== filteredChecklist.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div style={{ width: '40px', height: '40px', background: '#f3f4f6', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', fontWeight: '700', fontSize: '0.7rem' }}>
+                        DOC
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: '600', color: '#111827', fontSize: '0.95rem', marginBottom: '4px' }}>{doc.document_name}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Status: {doc.status}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: doc.status === 'Received' ? '#ecfdf5' : doc.status === 'Pending' ? '#fffbeb' : '#fef2f2', color: doc.status === 'Received' ? '#059669' : doc.status === 'Pending' ? '#d97706' : '#dc2626', padding: '4px 10px', borderRadius: '16px', fontSize: '0.75rem', fontWeight: '600' }}>
+                         {doc.status}
+                      </div>
+                      
+                      {doc.file_url && (
+                        <button onClick={async () => {
+                          try {
+                            const { data, error } = await supabase.storage.from('student_documents').createSignedUrl(doc.file_url, 60);
+                            if (error) throw error;
+                            if (data?.signedUrl) {
+                              window.open(data.signedUrl, '_blank');
+                            }
+                          } catch (err) {
+                            console.error('Error opening file:', err);
+                            if (showToast) showToast('Failed to open document. It may have been removed.', 'error');
+                          }
+                        }} style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#0f172a', cursor: 'pointer' }}>
+                          View PDF
+                        </button>
+                      )}
 
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {currentChecklist.length === 0 ? (

@@ -22,9 +22,40 @@ export default function AdminPortal() {
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showNewAppModal, setShowNewAppModal] = useState(false);
-
   const [pipelineCount, setPipelineCount] = useState(0);
   const [documentsCount, setDocumentsCount] = useState(0);
+
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const [globalSearchResults, setGlobalSearchResults] = useState({ clients: [], leads: [] });
+  const [showGlobalSearchDropdown, setShowGlobalSearchDropdown] = useState(false);
+
+  useEffect(() => {
+    if (!globalSearchQuery.trim()) {
+      setGlobalSearchResults({ clients: [], leads: [] });
+      setShowGlobalSearchDropdown(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      const term = `%${globalSearchQuery.trim()}%`;
+      const { data: clientsData } = await supabase
+        .from('students')
+        .select('id, name, education_level')
+        .ilike('name', term)
+        .limit(5);
+
+      const { data: leadsData } = await supabase
+        .from('leads')
+        .select('id, name, intended_course')
+        .ilike('name', term)
+        .limit(5);
+
+      setGlobalSearchResults({ clients: clientsData || [], leads: leadsData || [] });
+      setShowGlobalSearchDropdown(true);
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [globalSearchQuery]);
 
   useEffect(() => {
     async function loadUserProfile() {
@@ -39,7 +70,7 @@ export default function AdminPortal() {
           .select('*')
           .eq('id', user.id)
           .single();
-          
+
         if (staffError && staffError.code !== 'PGRST116') throw staffError;
 
         // Fetch assigned branch if exists
@@ -59,12 +90,12 @@ export default function AdminPortal() {
             branch = assignment.branches;
           }
         }
-        
+
         // If super admin and no branch, fetch the first branch in the system to act as HQ
         if (!branch && staff?.role === 'super_admin') {
           const { data: fallbackBranch } = await supabase.from('branches').select('id, name, code').limit(1).single();
           if (fallbackBranch) {
-             branch = fallbackBranch;
+            branch = fallbackBranch;
           }
         }
 
@@ -92,7 +123,7 @@ export default function AdminPortal() {
         `);
         let dCount = 0;
         if (staff?.role === 'branch_admin' && branch) {
-          dCount = (docsData || []).filter(d => 
+          dCount = (docsData || []).filter(d =>
             d.checklist_instances?.student_destinations?.students?.branch_id === branch.id
           ).length;
         } else {
@@ -161,14 +192,14 @@ export default function AdminPortal() {
 
   return (
     <div className="admin-portal" style={{ display: 'flex', height: '100vh', overflow: 'hidden', backgroundColor: '#f9fafb', fontFamily: '"Inter", sans-serif' }}>
-      
+
       {/* Sidebar Navigation */}
       {isSidebarOpen && (
-        <aside style={{ 
-          width: '260px', 
-          backgroundColor: '#111827', 
-          display: 'flex', 
-          flexDirection: 'column', 
+        <aside style={{
+          width: '260px',
+          backgroundColor: '#111827',
+          display: 'flex',
+          flexDirection: 'column',
           height: '100vh',
           zIndex: 20,
           borderRight: '1px solid #1f2937'
@@ -289,7 +320,7 @@ export default function AdminPortal() {
 
       {/* Main Content Layout */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        
+
         {/* Top Header */}
         <header style={{ height: '72px', backgroundColor: 'var(--admin-bg-header)', borderBottom: '1px solid var(--admin-border-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', zIndex: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '24px', width: '100%' }}>
@@ -298,12 +329,78 @@ export default function AdminPortal() {
                 <Menu size={20} />
               </button>
             )}
-            
-            {/* Minimalist Search Bar */}
-            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--admin-bg-body)', borderRadius: '8px', padding: '10px 16px', width: '400px', border: '1px solid var(--admin-border-light)' }}>
-              <Search size={16} color="var(--admin-text-muted)" style={{ marginRight: '10px' }} />
-              <input type="text" placeholder="Search applications, clients, payments..." style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: '0.85rem', width: '100%', color: 'var(--admin-text-primary)' }} />
-              <div style={{ background: 'white', border: '1px solid var(--admin-border-light)', borderRadius: '4px', padding: '2px 6px', fontSize: '0.65rem', color: 'var(--admin-text-muted)', fontWeight: '600' }}>⌘K</div>
+
+            {/* Minimalist Search Bar with Instant Results */}
+            <div style={{ position: 'relative', width: '400px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--admin-bg-body)', borderRadius: '8px', padding: '10px 16px', border: '1px solid var(--admin-border-light)' }}>
+                <Search size={16} color="var(--admin-text-muted)" style={{ marginRight: '10px' }} />
+                <input
+                  type="text"
+                  placeholder="Search applications, clients, payments..."
+                  value={globalSearchQuery}
+                  onChange={(e) => setGlobalSearchQuery(e.target.value)}
+                  onFocus={() => { if (globalSearchQuery.trim()) setShowGlobalSearchDropdown(true); }}
+                  style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: '0.85rem', width: '100%', color: 'var(--admin-text-primary)' }}
+                />
+                {globalSearchQuery ? (
+                  <button onClick={() => { setGlobalSearchQuery(''); setShowGlobalSearchDropdown(false); }} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '0.8rem', padding: 0 }}>&times;</button>
+                ) : (
+                  <div style={{ background: 'white', border: '1px solid var(--admin-border-light)', borderRadius: '4px', padding: '2px 6px', fontSize: '0.65rem', color: 'var(--admin-text-muted)', fontWeight: '600' }}>⌘K</div>
+                )}
+              </div>
+
+              {/* Instant Search Dropdown Results */}
+              {showGlobalSearchDropdown && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px', background: '#ffffff', border: '1px solid var(--admin-border-light)', borderRadius: '10px', boxShadow: 'var(--admin-shadow-lg)', zIndex: 100, overflow: 'hidden', padding: '12px 0' }}>
+                  <div style={{ padding: '4px 16px 8px 16px', fontSize: '0.65rem', fontWeight: '700', color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    CLIENT DIRECTORY
+                  </div>
+                  {globalSearchResults.clients.length === 0 ? (
+                    <div style={{ padding: '8px 16px', fontSize: '0.8rem', color: '#9ca3af' }}>No matching clients</div>
+                  ) : (
+                    globalSearchResults.clients.map(client => (
+                      <div
+                        key={client.id}
+                        onClick={() => {
+                          navigateToStudent(client.id);
+                          setShowGlobalSearchDropdown(false);
+                          setGlobalSearchQuery('');
+                        }}
+                        style={{ padding: '8px 16px', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--admin-text-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.15s' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <span style={{ fontWeight: '600' }}>{client.name}</span>
+                        <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{client.education_level || 'Client'}</span>
+                      </div>
+                    ))
+                  )}
+
+                  <div style={{ borderTop: '1px solid #f3f4f6', margin: '8px 0', padding: '8px 16px 4px 16px', fontSize: '0.65rem', fontWeight: '700', color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    PIPELINE APPLICATIONS
+                  </div>
+                  {globalSearchResults.leads.length === 0 ? (
+                    <div style={{ padding: '8px 16px', fontSize: '0.8rem', color: '#9ca3af' }}>No matching pipeline applications</div>
+                  ) : (
+                    globalSearchResults.leads.map(lead => (
+                      <div
+                        key={lead.id}
+                        onClick={() => {
+                          setActiveTab('pipeline');
+                          setShowGlobalSearchDropdown(false);
+                          setGlobalSearchQuery('');
+                        }}
+                        style={{ padding: '8px 16px', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--admin-text-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.15s' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <span style={{ fontWeight: '600' }}>{lead.name}</span>
+                        <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{lead.intended_course || 'Lead'}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -338,8 +435,8 @@ export default function AdminPortal() {
           {activeTab === 'visa_types' && <VisaTypesManager currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} />}
           {activeTab === 'config' && currentRole === 'super_admin' && <ConfigurationManager showToast={showToast} />}
           {activeTab === 'templates' && currentRole === 'super_admin' && <MasterTemplatesManager showToast={showToast} />}
-          
-          {['communication', 'partners'].includes(activeTab) && (
+
+          {['visa_types', 'communication', 'partners'].includes(activeTab) && (
             <div style={{ padding: '60px', textAlign: 'center', background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
               <Settings size={48} color="#9ca3af" style={{ margin: '0 auto 16px' }} />
               <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#111827', margin: '0 0 8px 0' }}>Coming Soon</h2>
@@ -352,10 +449,10 @@ export default function AdminPortal() {
       {/* Global Toast */}
       {toast && (
         <div style={{
-          position: 'fixed', bottom: '32px', right: '32px', 
-          backgroundColor: toast.type === 'error' ? 'var(--admin-danger)' : 'var(--admin-text-primary)', 
-          color: 'white', padding: '12px 24px', borderRadius: '8px', 
-          boxShadow: 'var(--admin-shadow-lg)', fontWeight: '500', 
+          position: 'fixed', bottom: '32px', right: '32px',
+          backgroundColor: toast.type === 'error' ? 'var(--admin-danger)' : 'var(--admin-text-primary)',
+          color: 'white', padding: '12px 24px', borderRadius: '8px',
+          boxShadow: 'var(--admin-shadow-lg)', fontWeight: '500',
           fontSize: '0.9rem', zIndex: 9999, animation: 'slideIn 0.3s ease-out', display: 'flex', alignItems: 'center', gap: '8px'
         }}>
           {toast.message}
@@ -363,7 +460,7 @@ export default function AdminPortal() {
       )}
 
       {showNewAppModal && (
-        <NewApplicationModal 
+        <NewApplicationModal
           onClose={() => setShowNewAppModal(false)}
           onSuccess={(newId) => {
             setShowNewAppModal(false);
