@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, FileCheck, CheckCircle2, AlertCircle, Clock, Plus, ArrowRight, ShieldCheck, FileText, Check, X, Award, Globe, Building2, Loader2, DollarSign, Download, MessageSquare, MoreHorizontal, Calendar, MapPin, Key } from 'lucide-react';
+import { Users, FileCheck, CheckCircle2, AlertCircle, Clock, Plus, ArrowRight, ShieldCheck, FileText, Check, X, Award, Globe, Building2, Loader2, DollarSign, Download, MessageSquare, MoreHorizontal, Calendar, MapPin, Key, Search, Filter } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import StudentTimelineView from './StudentTimelineView';
 
@@ -31,6 +31,11 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
   const [showAddDocModal, setShowAddDocModal] = useState(false);
   const [newDocName, setNewDocName] = useState('');
   const [newDocNotes, setNewDocNotes] = useState('');
+
+  // Search & Filter states
+  const [appSearchQuery, setAppSearchQuery] = useState('');
+  const [docSearchQuery, setDocSearchQuery] = useState('');
+  const [docStatusFilter, setDocStatusFilter] = useState('All');
 
   useEffect(() => {
     fetchStudents();
@@ -88,6 +93,12 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
   const currentChecklistInstance = primaryDestination?.checklist_instances?.find(c => c.vertical === activeVertical);
   const currentChecklist = currentChecklistInstance?.document_items || [];
 
+  const filteredChecklist = currentChecklist.filter(d => {
+    const nameMatch = !docSearchQuery || d.document_name?.toLowerCase().includes(docSearchQuery.toLowerCase());
+    const statusMatch = docStatusFilter === 'All' || d.status === docStatusFilter;
+    return nameMatch && statusMatch;
+  });
+
   const completedDocs = currentChecklist.filter(d => d.status === 'Received' || d.status === 'Waived').length;
   const progressPct = currentChecklist.length > 0 ? Math.round((completedDocs / currentChecklist.length) * 100) : 0;
 
@@ -100,7 +111,7 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
 
       if (error) throw error;
       if (showToast) showToast(`Document marked as ${newStatus}`);
-      await fetchStudents(); 
+      await fetchStudents();
     } catch (err) {
       console.error('Error updating checklist:', err);
       if (showToast) showToast('Failed to update checklist status.', 'error');
@@ -110,7 +121,7 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
   const allDocs = primaryDestination?.checklist_instances?.flatMap(c => c.document_items) || [];
   const docsReceived = allDocs.filter(d => d.status === 'Received' || d.status === 'Waived').length;
   const docsStatus = allDocs.length === 0 ? 'Pending' : (docsReceived === allDocs.length ? 'Completed' : 'In Progress');
-  
+
   const admissionChecklist = primaryDestination?.checklist_instances?.find(c => c.vertical === 'admission');
   const visaChecklist = primaryDestination?.checklist_instances?.find(c => c.vertical === 'visa');
 
@@ -145,7 +156,7 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
         .eq('id', selectedStudentId);
 
       if (error) throw error;
-      
+
       if (showToast) {
         showToast(`Invite Code Generated: ${code}. Share this with the student.`, 'success');
       }
@@ -184,7 +195,7 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
       const { error } = await supabase.from('students')
         .update({ branch_id: newBranchId })
         .eq('id', selectedStudentId);
-      
+
       if (error) throw error;
       setShowReassignModal(false);
       if (showToast) showToast("Student reassigned successfully.");
@@ -230,7 +241,7 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
       if (showToast) showToast('No active checklist stage available to add documents to. Create a destination first.', 'error');
       return;
     }
-    
+
     try {
       const { error } = await supabase.from('document_items').insert({
         instance_id: currentChecklistInstance.id,
@@ -240,7 +251,7 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
         is_required: true
       });
       if (error) throw error;
-      
+
       setShowAddDocModal(false);
       setNewDocName('');
       setNewDocNotes('');
@@ -251,6 +262,12 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
       if (showToast) showToast('Failed to request document.', 'error');
     }
   };
+
+  const matchingStudents = studentsList.filter(s => {
+    if (!appSearchQuery) return true;
+    const term = appSearchQuery.toLowerCase();
+    return (s.name || s.leads?.name || '').toLowerCase().includes(term) || (s.email || s.leads?.email || '').toLowerCase().includes(term);
+  });
 
   if (loading) {
     return (
@@ -267,6 +284,8 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
           <AlertCircle size={40} color="var(--admin-text-muted)" style={{ margin: '0 auto 16px' }} />
           <h2 style={{ fontSize: '1.2rem', color: 'var(--admin-text-primary)', margin: '0 0 8px 0' }}>No Clients Found</h2>
           <p style={{ color: 'var(--admin-text-muted)', margin: 0 }}>Convert a lead to a student in the Pipeline to view details.</p>
+          <h2 style={{ fontSize: '1.2rem', color: '#111827', margin: '0 0 8px 0' }}>No Clients Found</h2>
+          <p style={{ color: '#6b7280', margin: 0 }}>Convert a lead to a student in the Pipeline to view details.</p>
         </div>
       </div>
     );
@@ -277,8 +296,25 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
       <div style={{ padding: '32px' }}>
         <div style={{ background: '#ffffff', borderRadius: '14px', padding: '40px', textAlign: 'center', border: '1px solid var(--admin-border-light)' }}>
           <Users size={40} color="var(--admin-text-muted)" style={{ margin: '0 auto 16px' }} />
-          <h2 style={{ fontSize: '1.2rem', color: 'var(--admin-text-primary)', margin: '0 0 8px 0' }}>No Application Selected</h2>
-          <p style={{ color: 'var(--admin-text-muted)', margin: 0 }}>Please select an application from the Clients directory or Pipeline to view full details.</p>
+          <h2 style={{ fontSize: '1.2rem', color: '#111827', margin: '0 0 8px 0' }}>No Application Selected</h2>
+          <p style={{ color: '#6b7280', margin: '0 0 20px 0' }}>Select an application below or from the Clients directory/Pipeline.</p>
+          <div style={{ maxWidth: '400px', margin: '0 auto' }}>
+            <select 
+              onChange={(e) => {
+                if (e.target.value) {
+                  if (setExternalSelectedStudentId) setExternalSelectedStudentId(e.target.value);
+                  else setLocalSelectedStudentId(e.target.value);
+                }
+              }} 
+              className="admin-input" 
+              style={{ width: '100%', padding: '10px' }}
+            >
+              <option value="">Choose Application...</option>
+              {studentsList.map(s => (
+                <option key={s.id} value={s.id}>{s.name || s.leads?.name} ({s.education_level || 'General'})</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
     );
@@ -287,6 +323,33 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
       
+      {/* Top Application Switcher Bar */}
+      <div style={{ background: '#ffffff', border: '1px solid var(--admin-border-light)', borderRadius: '10px', padding: '12px 20px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '260px' }}>
+          <Search size={16} color="var(--admin-text-muted)" />
+          <select
+            value={selectedStudentId || ''}
+            onChange={(e) => {
+              if (e.target.value) {
+                if (setExternalSelectedStudentId) setExternalSelectedStudentId(e.target.value);
+                else setLocalSelectedStudentId(e.target.value);
+              }
+            }}
+            className="admin-input"
+            style={{ width: '100%', background: '#f9fafb', fontSize: '0.85rem', fontWeight: '600' }}
+          >
+            {matchingStudents.map(s => (
+              <option key={s.id} value={s.id}>
+                {s.name || s.leads?.name || 'Unnamed Client'} — APP-{s.id.substring(0,4).toUpperCase()}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div style={{ fontSize: '0.8rem', color: 'var(--admin-text-secondary)', fontWeight: '500' }}>
+          Showing 1 of {studentsList.length} total client files
+        </div>
+      </div>
+
       {/* Header Section */}
       <div style={{ marginBottom: '32px' }}>
         <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '8px' }}>
@@ -298,31 +361,25 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
               {selectedStudent?.name || selectedStudent?.leads?.name || 'Unnamed Client'} — {primaryDestination?.target_education_level || 'No Level'} ({primaryDestination?.destination_country || 'No Destination'})
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#ecfdf5', color: '#059669', padding: '4px 10px', borderRadius: '16px', fontSize: '0.75rem', fontWeight: '600' }}>
-                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#059669' }}></div>
-                 {primaryDestination?.status || 'Active'}
-               </div>
-               <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>
-                 Created on {new Date(selectedStudent?.created_at).toLocaleDateString()}
-               </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#ecfdf5', color: '#059669', padding: '4px 10px', borderRadius: '16px', fontSize: '0.75rem', fontWeight: '600' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#059669' }}></div>
+                {primaryDestination?.status || 'Active'}
+              </div>
+              <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+                Created on {new Date(selectedStudent?.created_at).toLocaleDateString()}
+              </span>
             </div>
           </div>
-          
+
           <div style={{ display: 'flex', gap: '12px' }}>
             <button onClick={() => { setEditProfileForm(selectedStudent || {}); setShowEditProfileModal(true); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--admin-bg-body)', border: '1px solid var(--admin-border-light)', borderRadius: '8px', padding: '8px 16px', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-primary)', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-              Edit Profile
+              <SquarePen size={16} /> Edit Profile
             </button>
             <button onClick={handleGenerateInvite} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '0.85rem', fontWeight: '600', color: '#000', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
               <Key size={16} /> {selectedStudent?.invite_code ? `Code: ${selectedStudent.invite_code}` : 'Generate Invite'}
             </button>
             <button style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 16px', fontSize: '0.85rem', fontWeight: '600', color: '#374151', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-              <MessageSquare size={16} /> Message client
-            </button>
-            <button style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 16px', fontSize: '0.85rem', fontWeight: '600', color: '#374151', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
               <Download size={16} /> Download file
-            </button>
-            <button style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', color: '#374151', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-              <MoreHorizontal size={16} />
             </button>
           </div>
         </div>
@@ -331,7 +388,7 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
         {selectedStudent?.student_destinations && selectedStudent.student_destinations.length > 1 && (
           <div style={{ display: 'flex', gap: '8px', marginTop: '20px' }}>
             {selectedStudent.student_destinations.map(dest => (
-              <button 
+              <button
                 key={dest.id}
                 onClick={() => setSelectedDestinationId(dest.id)}
                 style={{
@@ -356,67 +413,123 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
 
       {/* Main Content Split */}
       <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
-          
-          {/* Left Column (Applicant Info & Docs) */}
-          <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            
-            {/* Applicant Information Card */}
-            <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-              <div style={{ padding: '24px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#111827' }}>Applicant information</h3>
-                <button onClick={() => setShowDestModal(true)} style={{ background: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer' }}>
-                   <MoreHorizontal size={18} />
-                </button>
+
+        {/* Left Column (Applicant Info & Docs) */}
+        <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+          {/* Applicant Information Card */}
+          <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ padding: '24px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#111827' }}>Applicant information</h3>
+              <button onClick={() => setShowDestModal(true)} style={{ background: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer' }}>
+                <MoreHorizontal size={18} />
+              </button>
+            </div>
+            <div style={{ padding: '24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'y-32px x-24px', rowGap: '32px' }}>
+              <div>
+                <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>FULL NAME</div>
+                <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.name || selectedStudent?.leads?.name || 'Not provided'}</div>
               </div>
-              <div style={{ padding: '24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'y-32px x-24px', rowGap: '32px' }}>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>FULL NAME</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.name || selectedStudent?.leads?.name || 'Not provided'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>DATE OF BIRTH</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.date_of_birth || selectedStudent?.leads?.date_of_birth || 'Not provided'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>NATIONALITY</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.nationality || selectedStudent?.leads?.nationality || 'Not provided'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>PASSPORT NO. (EXPIRY)</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.passport_number ? `${selectedStudent.passport_number} (${selectedStudent.passport_expiry || 'No Expiry'})` : selectedStudent?.leads?.passport_number || 'Not provided'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>GENDER / MARITAL</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.gender ? `${selectedStudent.gender} / ${selectedStudent.marital_status || 'Unknown'}` : 'Not provided'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>PHONE</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.phone || selectedStudent?.leads?.phone || 'Not provided'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>EMAIL</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.email || selectedStudent?.leads?.email || 'Not provided'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>ACADEMIC PROFILE</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.highest_qualification || 'Not provided'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>ENGLISH TEST</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.english_test_type ? `${selectedStudent.english_test_type} (${selectedStudent.english_overall_score || '-'})` : 'Not provided'}</div>
-                  </div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>PERMANENT ADDRESS</div>
-                    <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.address || 'Not provided'}</div>
-                  </div>
+              <div>
+                <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>DATE OF BIRTH</div>
+                <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.date_of_birth || selectedStudent?.leads?.date_of_birth || 'Not provided'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>NATIONALITY</div>
+                <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.nationality || selectedStudent?.leads?.nationality || 'Not provided'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>PASSPORT NO. (EXPIRY)</div>
+                <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.passport_number ? `${selectedStudent.passport_number} (${selectedStudent.passport_expiry || 'No Expiry'})` : selectedStudent?.leads?.passport_number || 'Not provided'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>GENDER / MARITAL</div>
+                <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.gender ? `${selectedStudent.gender} / ${selectedStudent.marital_status || 'Unknown'}` : 'Not provided'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>PHONE</div>
+                <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.phone || selectedStudent?.leads?.phone || 'Not provided'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>EMAIL</div>
+                <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.email || selectedStudent?.leads?.email || 'Not provided'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Highest Qualification</div>
+                <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.highest_qualification || 'Not provided'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>ENGLISH TEST</div>
+                <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.english_test_type ? `${selectedStudent.english_test_type} (${selectedStudent.english_overall_score || '-'})` : 'Not provided'}</div>
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>PERMANENT ADDRESS</div>
+                <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.address || 'Not provided'}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Documents Card */}
+          <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ padding: '24px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#111827' }}>Documents</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: '500' }}>{completedDocs} of {currentChecklist.length || 0} approved</div>
+                <button
+                  onClick={() => setShowAddDocModal(true)}
+                  style={{ background: 'var(--admin-bg-body)', border: '1px solid var(--admin-border-light)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: 'var(--admin-text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Plus size={14} /> Request Document
+                </button>
+                <button
+                  onClick={() => {
+                    if (!selectedStudent?.invite_code) {
+                      showToast('Please generate an invite code first', 'error');
+                      return;
+                    }
+                    const link = `${window.location.origin}/upload/${selectedStudent.invite_code}`;
+                    navigator.clipboard.writeText(link);
+                    if (showToast) showToast('Secure Upload Link copied to clipboard!');
+                  }}
+                  style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#0f172a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Key size={14} /> Copy Upload Link
+                </button>
               </div>
             </div>
 
+            {/* Document Search & Filter Controls */}
+            <div style={{ padding: '16px 24px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+                <Search size={14} color="#9ca3af" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+                <input
+                  type="text"
+                  placeholder="Search documents by name..."
+                  value={docSearchQuery}
+                  onChange={(e) => setDocSearchQuery(e.target.value)}
+                  style={{ width: '100%', padding: '6px 10px 6px 30px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.8rem', background: '#ffffff' }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Filter size={14} color="#9ca3af" />
+                <select
+                  value={docStatusFilter}
+                  onChange={(e) => setDocStatusFilter(e.target.value)}
+                  style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.8rem', background: '#ffffff' }}
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Received">Received</option>
+                  <option value="Rejected">Rejected</option>
+                  <option value="Waived">Waived</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
             {/* Documents Card */}
             <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-              <div style={{ padding: '24px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ padding: '24px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                 <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#111827' }}>Documents</h3>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                   <div style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: '500' }}>{completedDocs} of {currentChecklist.length || 0} approved</div>
                   <button 
                     onClick={() => setShowAddDocModal(true)}
@@ -439,11 +552,41 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
                 </div>
               </div>
               
+              {/* Document Search & Filter Controls */}
+              <div style={{ padding: '16px 24px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+                  <Search size={14} color="#9ca3af" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+                  <input
+                    type="text"
+                    placeholder="Search documents by name..."
+                    value={docSearchQuery}
+                    onChange={(e) => setDocSearchQuery(e.target.value)}
+                    style={{ width: '100%', padding: '6px 10px 6px 30px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.8rem', background: '#ffffff' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Filter size={14} color="#9ca3af" />
+                  <select
+                    value={docStatusFilter}
+                    onChange={(e) => setDocStatusFilter(e.target.value)}
+                    style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.8rem', background: '#ffffff' }}
+                  >
+                    <option value="All">All Statuses</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Received">Received</option>
+                    <option value="Rejected">Rejected</option>
+                    <option value="Waived">Waived</option>
+                  </select>
+                </div>
+              </div>
+              
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {currentChecklist.length === 0 ? (
-                  <div style={{ padding: '32px', textAlign: 'center', color: '#6b7280', fontSize: '0.9rem' }}>No documents configured for this checklist.</div>
-                ) : currentChecklist.map((doc, idx) => (
-                  <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: idx !== currentChecklist.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                {filteredChecklist.length === 0 ? (
+                  <div style={{ padding: '32px', textAlign: 'center', color: '#6b7280', fontSize: '0.9rem' }}>
+                    {currentChecklist.length === 0 ? 'No documents configured for this checklist.' : 'No documents match the search/filter criteria.'}
+                  </div>
+                ) : filteredChecklist.map((doc, idx) => (
+                  <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: idx !== filteredChecklist.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                       <div style={{ width: '40px', height: '40px', background: '#f3f4f6', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', fontWeight: '700', fontSize: '0.7rem' }}>
                         DOC
@@ -475,94 +618,130 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
                         </button>
                       )}
 
-                      <select 
-                        value={doc.status}
-                        onChange={(e) => handleStatusToggle(doc.id, e.target.value)}
-                        style={{ background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '2px 4px', fontSize: '0.75rem', color: '#4b5563', cursor: 'pointer' }}
-                      >
-                         <option value="Pending">Pending</option>
-                         <option value="Received">Received</option>
-                         <option value="Rejected">Rejected</option>
-                         <option value="Waived">Waived</option>
-                      </select>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {currentChecklist.length === 0 ? (
+                <div style={{ padding: '32px', textAlign: 'center', color: '#6b7280', fontSize: '0.9rem' }}>No documents configured for this checklist.</div>
+              ) : currentChecklist.map((doc, idx) => (
+                <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: idx !== currentChecklist.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ width: '40px', height: '40px', background: '#f3f4f6', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', fontWeight: '700', fontSize: '0.7rem' }}>
+                      DOC
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-          </div>
-
-          {/* Right Column (Timeline & Finances) */}
-          <div style={{ width: '380px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            
-            {/* Application Milestones Card */}
-            <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '24px' }}>
-              <h3 style={{ margin: '0 0 24px 0', fontSize: '1.05rem', fontWeight: '700', color: '#111827' }}>Application milestones</h3>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0', position: 'relative' }}>
-                <div style={{ position: 'absolute', left: '7px', top: '10px', bottom: '10px', width: '2px', background: '#e5e7eb', zIndex: 0 }}></div>
-                
-                {stages.map((stage, idx) => (
-                  <div key={idx} style={{ display: 'flex', gap: '16px', position: 'relative', zIndex: 1, paddingBottom: idx !== stages.length - 1 ? '24px' : '0' }}>
-                     <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: stage.status === 'Completed' ? '#059669' : '#ffffff', border: `2px solid ${stage.status === 'Completed' ? '#059669' : stage.status === 'In Progress' ? '#f59e0b' : '#d1d5db'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '2px' }}>
-                        {stage.status === 'Completed' && <Check size={10} color="#ffffff" strokeWidth={3} />}
-                     </div>
-                     <div style={{ flex: 1 }}>
-                       <div style={{ fontWeight: '600', color: '#111827', fontSize: '0.9rem', marginBottom: '4px' }}>{stage.title}</div>
-                       <div style={{ color: '#6b7280', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                         <span>{stage.subtitle || stage.status}</span>
-                         {stage.isEditable && (
-                            <select 
-                              value={stage.status}
-                              onChange={(e) => handleUpdateChecklistStatus(stage.id, e.target.value)}
-                              style={{ background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '2px 4px', fontSize: '0.75rem', color: '#4b5563', cursor: 'pointer', marginLeft: '8px' }}
-                            >
-                               <option value="Pending">Pending</option>
-                               <option value="In Progress">In Progress</option>
-                               <option value="Completed">Completed</option>
-                            </select>
-                         )}
-                       </div>
-                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Payment Summary Card */}
-            <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-              <div style={{ padding: '24px', borderBottom: '1px solid #f3f4f6' }}>
-                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#111827' }}>Financial Ledger</h3>
-              </div>
-              <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {(!selectedStudent?.fee_records || selectedStudent.fee_records.length === 0) ? (
-                   <div style={{ color: '#6b7280', fontSize: '0.9rem', textAlign: 'center' }}>No fee records found.</div>
-                ) : selectedStudent.fee_records.map(record => (
-                  <div key={record.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <div style={{ fontSize: '0.9rem', color: '#4b5563', fontWeight: '600' }}>{record.fee_types?.name || 'Standard Fee'}</div>
-                      <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Status: {record.status}</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#111827' }}>
-                        {record.currency} {record.total_amount}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: record.balance > 0 ? '#dc2626' : '#059669', fontWeight: '600' }}>
-                        Bal: {record.currency} {record.balance}
-                      </div>
+                      <div style={{ fontWeight: '600', color: '#111827', fontSize: '0.95rem', marginBottom: '4px' }}>{doc.document_name}</div>
+                      <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Status: {doc.status}</div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: doc.status === 'Received' ? '#ecfdf5' : doc.status === 'Pending' ? '#fffbeb' : '#fef2f2', color: doc.status === 'Received' ? '#059669' : doc.status === 'Pending' ? '#d97706' : '#dc2626', padding: '4px 10px', borderRadius: '16px', fontSize: '0.75rem', fontWeight: '600' }}>
+                      {doc.status}
+                    </div>
 
+                    {doc.file_url && (
+                      <button onClick={async () => {
+                        try {
+                          const { data, error } = await supabase.storage.from('student_documents').createSignedUrl(doc.file_url, 60);
+                          if (error) throw error;
+                          if (data?.signedUrl) {
+                            window.open(data.signedUrl, '_blank');
+                          }
+                        } catch (err) {
+                          console.error('Error opening file:', err);
+                          if (showToast) showToast('Failed to open document. It may have been removed.', 'error');
+                        }
+                      }} style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#0f172a', cursor: 'pointer' }}>
+                        View PDF
+                      </button>
+                    )}
+
+                    <select
+                      value={doc.status}
+                      onChange={(e) => handleStatusToggle(doc.id, e.target.value)}
+                      style={{ background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '2px 4px', fontSize: '0.75rem', color: '#4b5563', cursor: 'pointer' }}
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="Received">Received</option>
+                      <option value="Rejected">Rejected</option>
+                      <option value="Waived">Waived</option>
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
+
+        </div>
+
+        {/* Right Column (Timeline & Finances) */}
+        <div style={{ width: '380px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+          {/* Application Milestones Card */}
+          <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: '24px' }}>
+            <h3 style={{ margin: '0 0 24px 0', fontSize: '1.05rem', fontWeight: '700', color: '#111827' }}>Application milestones</h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0', position: 'relative' }}>
+              <div style={{ position: 'absolute', left: '7px', top: '10px', bottom: '10px', width: '2px', background: '#e5e7eb', zIndex: 0 }}></div>
+
+              {stages.map((stage, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: '16px', position: 'relative', zIndex: 1, paddingBottom: idx !== stages.length - 1 ? '24px' : '0' }}>
+                  <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: stage.status === 'Completed' ? '#059669' : '#ffffff', border: `2px solid ${stage.status === 'Completed' ? '#059669' : stage.status === 'In Progress' ? '#f59e0b' : '#d1d5db'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '2px' }}>
+                    {stage.status === 'Completed' && <Check size={10} color="#ffffff" strokeWidth={3} />}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: '600', color: '#111827', fontSize: '0.9rem', marginBottom: '4px' }}>{stage.title}</div>
+                    <div style={{ color: '#6b7280', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span>{stage.subtitle || stage.status}</span>
+                      {stage.isEditable && (
+                        <select
+                          value={stage.status}
+                          onChange={(e) => handleUpdateChecklistStatus(stage.id, e.target.value)}
+                          style={{ background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '2px 4px', fontSize: '0.75rem', color: '#4b5563', cursor: 'pointer', marginLeft: '8px' }}
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="In Progress">In Progress</option>
+                          <option value="Completed">Completed</option>
+                        </select>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Payment Summary Card */}
+          <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ padding: '24px', borderBottom: '1px solid #f3f4f6' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#111827' }}>Financial Ledger</h3>
+            </div>
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {(!selectedStudent?.fee_records || selectedStudent.fee_records.length === 0) ? (
+                <div style={{ color: '#6b7280', fontSize: '0.9rem', textAlign: 'center' }}>No fee records found.</div>
+              ) : selectedStudent.fee_records.map(record => (
+                <div key={record.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '0.9rem', color: '#4b5563', fontWeight: '600' }}>{record.fee_types?.name || 'Standard Fee'}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Status: {record.status}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#111827' }}>
+                      {record.currency} {record.total_amount}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: record.balance > 0 ? '#dc2626' : '#059669', fontWeight: '600' }}>
+                      Bal: {record.currency} {record.balance}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
       </div>
 
       {/* Floating Chat Button */}
       <div style={{ position: 'fixed', bottom: '32px', right: '32px', width: '56px', height: '56px', borderRadius: '50%', background: '#059669', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(5, 150, 105, 0.3)', cursor: 'pointer', zIndex: 100 }}>
-         <MessageSquare size={24} />
+        <MessageSquare size={24} />
       </div>
 
       {/* Modals remain mostly the same structurally, just styling updates */}
@@ -605,7 +784,7 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
             </div>
             <form onSubmit={handleReassignBranch} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <p style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: 'var(--admin-text-secondary)' }}>Select a new branch for <strong>{selectedStudent?.name}</strong>. Their data and checklists will transfer immediately.</p>
-              
+
               <select
                 required
                 className="admin-input"
@@ -640,21 +819,21 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Date of Birth</label>
-                  <input type="date" className="admin-input" value={editProfileForm.date_of_birth || ''} onChange={e => setEditProfileForm({...editProfileForm, date_of_birth: e.target.value})} />
+                  <input type="date" className="admin-input" value={editProfileForm.date_of_birth || ''} onChange={e => setEditProfileForm({ ...editProfileForm, date_of_birth: e.target.value })} />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Nationality</label>
-                  <input className="admin-input" value={editProfileForm.nationality || ''} onChange={e => setEditProfileForm({...editProfileForm, nationality: e.target.value})} placeholder="e.g. Indian" />
+                  <input className="admin-input" value={editProfileForm.nationality || ''} onChange={e => setEditProfileForm({ ...editProfileForm, nationality: e.target.value })} placeholder="e.g. Indian" />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Gender</label>
-                  <select className="admin-input" value={editProfileForm.gender || ''} onChange={e => setEditProfileForm({...editProfileForm, gender: e.target.value})}>
+                  <select className="admin-input" value={editProfileForm.gender || ''} onChange={e => setEditProfileForm({ ...editProfileForm, gender: e.target.value })}>
                     <option value="">Select...</option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>
                   </select>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Marital Status</label>
-                  <select className="admin-input" value={editProfileForm.marital_status || ''} onChange={e => setEditProfileForm({...editProfileForm, marital_status: e.target.value})}>
+                  <select className="admin-input" value={editProfileForm.marital_status || ''} onChange={e => setEditProfileForm({ ...editProfileForm, marital_status: e.target.value })}>
                     <option value="">Select...</option><option value="Single">Single</option><option value="Married">Married</option>
                   </select>
                 </div>
@@ -664,15 +843,15 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Passport Number</label>
-                  <input className="admin-input" value={editProfileForm.passport_number || ''} onChange={e => setEditProfileForm({...editProfileForm, passport_number: e.target.value})} placeholder="A1234567" />
+                  <input className="admin-input" value={editProfileForm.passport_number || ''} onChange={e => setEditProfileForm({ ...editProfileForm, passport_number: e.target.value })} placeholder="A1234567" />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Passport Expiry</label>
-                  <input type="date" className="admin-input" value={editProfileForm.passport_expiry || ''} onChange={e => setEditProfileForm({...editProfileForm, passport_expiry: e.target.value})} />
+                  <input type="date" className="admin-input" value={editProfileForm.passport_expiry || ''} onChange={e => setEditProfileForm({ ...editProfileForm, passport_expiry: e.target.value })} />
                 </div>
                 <div style={{ gridColumn: '1 / -1' }}>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Permanent Address</label>
-                  <textarea className="admin-input" value={editProfileForm.address || ''} onChange={e => setEditProfileForm({...editProfileForm, address: e.target.value})} rows={2} placeholder="Full address" />
+                  <textarea className="admin-input" value={editProfileForm.address || ''} onChange={e => setEditProfileForm({ ...editProfileForm, address: e.target.value })} rows={2} placeholder="Full address" />
                 </div>
               </div>
 
@@ -680,17 +859,17 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div style={{ gridColumn: '1 / -1' }}>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Highest Qualification</label>
-                  <input className="admin-input" value={editProfileForm.highest_qualification || ''} onChange={e => setEditProfileForm({...editProfileForm, highest_qualification: e.target.value})} placeholder="e.g. Bachelor of Technology (2024)" />
+                  <input className="admin-input" value={editProfileForm.highest_qualification || ''} onChange={e => setEditProfileForm({ ...editProfileForm, highest_qualification: e.target.value })} placeholder="e.g. Bachelor of Technology (2024)" />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>English Test</label>
-                  <select className="admin-input" value={editProfileForm.english_test_type || ''} onChange={e => setEditProfileForm({...editProfileForm, english_test_type: e.target.value})}>
+                  <select className="admin-input" value={editProfileForm.english_test_type || ''} onChange={e => setEditProfileForm({ ...editProfileForm, english_test_type: e.target.value })}>
                     <option value="">Select...</option><option value="IELTS">IELTS</option><option value="PTE">PTE</option><option value="TOEFL">TOEFL</option><option value="Duolingo">Duolingo</option>
                   </select>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-secondary)', marginBottom: '6px' }}>Overall Score</label>
-                  <input className="admin-input" value={editProfileForm.english_overall_score || ''} onChange={e => setEditProfileForm({...editProfileForm, english_overall_score: e.target.value})} placeholder="e.g. 7.5" />
+                  <input className="admin-input" value={editProfileForm.english_overall_score || ''} onChange={e => setEditProfileForm({ ...editProfileForm, english_overall_score: e.target.value })} placeholder="e.g. 7.5" />
                 </div>
               </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LayoutDashboard, Users, UserPlus, DollarSign, History, LogOut, Loader2, Settings, Search, Menu, Bell, Sun, FileText, Globe, MessageSquare } from 'lucide-react';
 import DashboardOverview from './DashboardOverview';
 import LeadsManager from './LeadsManager';
@@ -8,6 +8,7 @@ import ClientsList from './ClientsList';
 import ActivityTimeline from './ActivityTimeline';
 import ConfigurationManager from './ConfigurationManager';
 import MasterTemplatesManager from './MasterTemplatesManager';
+import VisaTypesManager from './VisaTypesManager';
 import NewApplicationModal from './NewApplicationModal';
 import { supabase } from '../../lib/supabaseClient';
 import '../../admin-theme.css';
@@ -20,8 +21,76 @@ export default function AdminPortal() {
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showNewAppModal, setShowNewAppModal] = useState(false);
-
   const [pipelineCount, setPipelineCount] = useState(0);
+
+  // Global Header Search States
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const [globalSearchResults, setGlobalSearchResults] = useState({ clients: [], leads: [] });
+  const [showGlobalSearchDropdown, setShowGlobalSearchDropdown] = useState(false);
+  const searchInputRef = useRef(null);
+
+  // Keyboard Shortcut (Cmd+K / Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Live Supabase Search
+  useEffect(() => {
+    if (!globalSearchQuery.trim()) {
+      setGlobalSearchResults({ clients: [], leads: [] });
+      setShowGlobalSearchDropdown(false);
+      return;
+    }
+
+    const term = globalSearchQuery.trim();
+    setShowGlobalSearchDropdown(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        // Search Clients (Students)
+        let sQuery = supabase
+          .from('students')
+          .select('id, name, email, phone, education_level, branches(name), leads(name, email)')
+          .or(`name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`)
+          .limit(5);
+
+        if (currentRole === 'branch_admin' && currentBranch?.id) {
+          sQuery = sQuery.eq('branch_id', currentBranch.id);
+        }
+
+        // Search Pipeline Applications (Leads)
+        let lQuery = supabase
+          .from('leads')
+          .select('id, name, email, phone, interested_country, intended_course, status')
+          .or(`name.ilike.%${term}%,email.ilike.%${term}%,intended_course.ilike.%${term}%,interested_country.ilike.%${term}%`)
+          .limit(5);
+
+        if (currentRole === 'branch_admin' && currentBranch?.id) {
+          lQuery = lQuery.eq('assigned_branch_id', currentBranch.id);
+        }
+
+        const [{ data: clientsData }, { data: leadsData }] = await Promise.all([sQuery, lQuery]);
+
+        setGlobalSearchResults({
+          clients: clientsData || [],
+          leads: leadsData || []
+        });
+      } catch (err) {
+        console.error('Global search error:', err);
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [globalSearchQuery, currentRole, currentBranch]);
 
   useEffect(() => {
     async function loadUserProfile() {
@@ -310,6 +379,7 @@ export default function AdminPortal() {
           {activeTab === 'clients' && <ClientsList currentRole={currentRole} currentBranch={currentBranch} onStudentClick={navigateToStudent} onAddClient={() => setShowNewAppModal(true)} />}
           {activeTab === 'payments' && <FinancialLedger currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} />}
           {activeTab === 'reports' && <ActivityTimeline currentRole={currentRole} currentBranch={currentBranch} />}
+          {activeTab === 'visa_types' && <VisaTypesManager currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} />}
           {activeTab === 'config' && currentRole === 'super_admin' && <ConfigurationManager showToast={showToast} />}
           {activeTab === 'templates' && currentRole === 'super_admin' && <MasterTemplatesManager showToast={showToast} />}
 
