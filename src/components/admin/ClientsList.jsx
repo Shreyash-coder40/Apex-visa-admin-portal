@@ -2,11 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { Search, Loader2, Filter, ChevronRight, X } from 'lucide-react';
 
-const ClientsList = ({ currentRole, currentBranch, onStudentClick, onAddClient }) => {
+const ClientsList = ({ currentRole, currentBranch, onStudentClick, onAddClient, externalSearchQuery }) => {
   const [students, setStudents] = useState([]);
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(externalSearchQuery || '');
+
+  useEffect(() => {
+    if (externalSearchQuery !== undefined) {
+      setSearchQuery(externalSearchQuery);
+    }
+  }, [externalSearchQuery]);
   
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [statusFilter, setStatusFilter] = useState('All');

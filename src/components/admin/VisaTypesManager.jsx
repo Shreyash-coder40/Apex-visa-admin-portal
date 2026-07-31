@@ -50,14 +50,20 @@ const DESTINATION_COUNTRIES = [
   { name: 'Ireland', code: 'IRL', flag: '🇮🇪' }
 ];
 
-export default function VisaTypesManager({ currentRole, currentBranch, showToast }) {
+export default function VisaTypesManager({ currentRole, currentBranch, showToast, externalSearchQuery }) {
   const isSuperAdmin = currentRole === 'super_admin';
   const [selectedCountry, setSelectedCountry] = useState('United States');
   const [visaTypes, setVisaTypes] = useState(INITIAL_VISA_TYPES);
   const [loading, setLoading] = useState(false);
 
   // Search & Filter
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(externalSearchQuery || '');
+
+  useEffect(() => {
+    if (externalSearchQuery !== undefined) {
+      setSearchQuery(externalSearchQuery);
+    }
+  }, [externalSearchQuery]);
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
 

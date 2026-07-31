@@ -3,7 +3,7 @@ import { Users, FileCheck, CheckCircle2, AlertCircle, Clock, Plus, ArrowRight, S
 import { supabase } from '../../lib/supabaseClient';
 import StudentTimelineView from './StudentTimelineView';
 
-export default function StudentChecklistManager({ currentRole, currentBranch, showToast, externalSelectedStudentId, setExternalSelectedStudentId }) {
+export default function StudentChecklistManager({ currentRole, currentBranch, showToast, externalSelectedStudentId, setExternalSelectedStudentId, externalSearchQuery }) {
   const isSuperAdmin = currentRole === 'super_admin';
   const [studentsList, setStudentsList] = useState([]);
   const [localSelectedStudentId, setLocalSelectedStudentId] = useState(null);
@@ -33,9 +33,15 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
   const [newDocNotes, setNewDocNotes] = useState('');
 
   // Search & Filter states
-  const [appSearchQuery, setAppSearchQuery] = useState('');
+  const [appSearchQuery, setAppSearchQuery] = useState(externalSearchQuery || '');
   const [docSearchQuery, setDocSearchQuery] = useState('');
   const [docStatusFilter, setDocStatusFilter] = useState('All');
+
+  useEffect(() => {
+    if (externalSearchQuery !== undefined) {
+      setAppSearchQuery(externalSearchQuery);
+    }
+  }, [externalSearchQuery]);
 
   useEffect(() => {
     fetchStudents();

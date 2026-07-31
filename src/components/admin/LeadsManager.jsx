@@ -2,9 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { UserPlus, CheckCircle2, ArrowRight, Filter, Search, Building2, Phone, Mail, Clock, AlertCircle, Sparkles, Loader2, MoreHorizontal } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 
-export default function LeadsManager({ currentRole, currentBranch, currentUser, showToast }) {
+export default function LeadsManager({ currentRole, currentBranch, currentUser, showToast, externalSearchQuery }) {
   const isSuperAdmin = currentRole === 'super_admin';
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(externalSearchQuery || '');
+
+  useEffect(() => {
+    if (externalSearchQuery !== undefined) {
+      setSearchTerm(externalSearchQuery);
+    }
+  }, [externalSearchQuery]);
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState('list');

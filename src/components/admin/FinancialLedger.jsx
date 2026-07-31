@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DollarSign, Plus, CheckCircle2, AlertCircle, Clock, ShieldCheck, ArrowDownRight, ArrowUpRight, Building2, RefreshCw, FileText, Loader2, X, ChevronDown, ChevronUp, User, Search, Filter, CreditCard, CornerDownLeft } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 
-export default function FinancialLedger({ currentRole, currentBranch, showToast }) {
+export default function FinancialLedger({ currentRole, currentBranch, showToast, externalSearchQuery }) {
   const isSuperAdmin = currentRole === 'super_admin';
   const [studentsWithFees, setStudentsWithFees] = useState([]);
   const [allStudents, setAllStudents] = useState([]);
@@ -27,7 +27,13 @@ export default function FinancialLedger({ currentRole, currentBranch, showToast 
   const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('');
 
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(externalSearchQuery || '');
+
+  useEffect(() => {
+    if (externalSearchQuery !== undefined) {
+      setSearchTerm(externalSearchQuery);
+    }
+  }, [externalSearchQuery]);
   const [filterStatus, setFilterStatus] = useState('All');
   
   const [expandedStudentIds, setExpandedStudentIds] = useState(new Set());

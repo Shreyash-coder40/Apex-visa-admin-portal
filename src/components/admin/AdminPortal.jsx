@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, Users, UserPlus, DollarSign, History, LogOut, Loader2, Settings, Search, Menu, Bell, Sun, FileText, Globe, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Users, UserPlus, DollarSign, History, LogOut, Loader2, Settings, Search, Menu, Bell, Sun, FileText, Globe, MessageSquare, X } from 'lucide-react';
 import DashboardOverview from './DashboardOverview';
 import LeadsManager from './LeadsManager';
 import StudentChecklistManager from './StudentChecklistManager';
@@ -28,6 +28,28 @@ export default function AdminPortal() {
   const [globalSearchResults, setGlobalSearchResults] = useState({ clients: [], leads: [] });
   const [showGlobalSearchDropdown, setShowGlobalSearchDropdown] = useState(false);
   const searchInputRef = useRef(null);
+  const searchContainerRef = useRef(null);
+
+  // Click outside to close search dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+        setShowGlobalSearchDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelectClient = (clientId) => {
+    navigateToStudent(clientId);
+    setShowGlobalSearchDropdown(false);
+  };
+
+  const handleSelectLead = (leadId) => {
+    setActiveTab('pipeline');
+    setShowGlobalSearchDropdown(false);
+  };
 
   // Keyboard Shortcut (Cmd+K / Ctrl+K)
   useEffect(() => {
@@ -345,10 +367,113 @@ export default function AdminPortal() {
             )}
 
             {/* Minimalist Search Bar */}
-            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--admin-bg-body)', borderRadius: '8px', padding: '10px 16px', width: '400px', border: '1px solid var(--admin-border-light)' }}>
-              <Search size={16} color="var(--admin-text-muted)" style={{ marginRight: '10px' }} />
-              <input type="text" placeholder="Search applications, clients, payments..." style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: '0.85rem', width: '100%', color: 'var(--admin-text-primary)' }} />
-              <div style={{ background: 'white', border: '1px solid var(--admin-border-light)', borderRadius: '4px', padding: '2px 6px', fontSize: '0.65rem', color: 'var(--admin-text-muted)', fontWeight: '600' }}>⌘K</div>
+            <div ref={searchContainerRef} style={{ position: 'relative', width: '420px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--admin-bg-body)', borderRadius: '8px', padding: '10px 16px', border: '1px solid var(--admin-border-light)' }}>
+                <Search size={16} color="var(--admin-text-muted)" style={{ marginRight: '10px', flexShrink: 0 }} />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={globalSearchQuery}
+                  onChange={(e) => setGlobalSearchQuery(e.target.value)}
+                  onFocus={() => { if (globalSearchQuery.trim()) setShowGlobalSearchDropdown(true); }}
+                  placeholder="Search applications, clients, payments..."
+                  style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: '0.85rem', width: '100%', color: 'var(--admin-text-primary)' }}
+                />
+                {globalSearchQuery ? (
+                  <button
+                    onClick={() => { setGlobalSearchQuery(''); setShowGlobalSearchDropdown(false); }}
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', color: 'var(--admin-text-muted)' }}
+                  >
+                    <X size={14} />
+                  </button>
+                ) : (
+                  <div style={{ background: 'white', border: '1px solid var(--admin-border-light)', borderRadius: '4px', padding: '2px 6px', fontSize: '0.65rem', color: 'var(--admin-text-muted)', fontWeight: '600' }}>⌘K</div>
+                )}
+              </div>
+
+              {/* Global Search Dropdown */}
+              {showGlobalSearchDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  left: 0,
+                  right: 0,
+                  background: '#ffffff',
+                  borderRadius: '12px',
+                  border: '1px solid #e5e7eb',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                  zIndex: 1000,
+                  maxHeight: '400px',
+                  overflowY: 'auto',
+                  padding: '12px 0'
+                }}>
+                  {globalSearchResults.clients.length === 0 && globalSearchResults.leads.length === 0 ? (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280', fontSize: '0.85rem' }}>
+                      No matching clients or applications found.
+                    </div>
+                  ) : (
+                    <>
+                      {globalSearchResults.clients.length > 0 && (
+                        <div>
+                          <div style={{ padding: '6px 16px', fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Clients & Students ({globalSearchResults.clients.length})
+                          </div>
+                          {globalSearchResults.clients.map(client => (
+                            <div
+                              key={client.id}
+                              onClick={() => handleSelectClient(client.id)}
+                              style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', transition: 'background 0.15s' }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = '#f9fafb'}
+                              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            >
+                              <div>
+                                <div style={{ fontWeight: '600', fontSize: '0.85rem', color: '#111827' }}>
+                                  {client.name || client.leads?.name || 'Unnamed Client'}
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                                  {client.email || 'No Email'} • {client.branches?.name || 'Main Branch'}
+                                </div>
+                              </div>
+                              <div style={{ fontSize: '0.7rem', background: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: '12px', fontWeight: '600' }}>
+                                Enrolled
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {globalSearchResults.leads.length > 0 && (
+                        <div style={{ marginTop: globalSearchResults.clients.length > 0 ? '8px' : 0 }}>
+                          <div style={{ padding: '6px 16px', fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Pipeline Applications ({globalSearchResults.leads.length})
+                          </div>
+                          {globalSearchResults.leads.map(lead => (
+                            <div
+                              key={lead.id}
+                              onClick={() => handleSelectLead(lead.id)}
+                              style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', transition: 'background 0.15s' }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = '#f9fafb'}
+                              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            >
+                              <div>
+                                <div style={{ fontWeight: '600', fontSize: '0.85rem', color: '#111827' }}>
+                                  {lead.name || 'Unnamed Lead'}
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                                  {lead.interested_country || 'General'} • {lead.intended_course || 'Course N/A'}
+                                </div>
+                              </div>
+                              <div style={{ fontSize: '0.7rem', background: '#fffbeb', color: '#b45309', padding: '2px 8px', borderRadius: '12px', fontWeight: '600' }}>
+                                {lead.status || 'Pipeline'}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -374,16 +499,16 @@ export default function AdminPortal() {
         {/* Main Scrolling Area */}
         <main style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
           {activeTab === 'dashboard' && <DashboardOverview currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} />}
-          {activeTab === 'pipeline' && <LeadsManager currentRole={currentRole} currentBranch={currentBranch} currentUser={currentUser} showToast={showToast} />}
-          {activeTab === 'application_detail' && <StudentChecklistManager currentRole={currentRole} currentBranch={currentBranch} currentUser={currentUser} showToast={showToast} externalSelectedStudentId={selectedStudentId} setExternalSelectedStudentId={setSelectedStudentId} />}
-          {activeTab === 'clients' && <ClientsList currentRole={currentRole} currentBranch={currentBranch} onStudentClick={navigateToStudent} onAddClient={() => setShowNewAppModal(true)} />}
-          {activeTab === 'payments' && <FinancialLedger currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} />}
+          {activeTab === 'pipeline' && <LeadsManager currentRole={currentRole} currentBranch={currentBranch} currentUser={currentUser} showToast={showToast} externalSearchQuery={globalSearchQuery} />}
+          {activeTab === 'application_detail' && <StudentChecklistManager currentRole={currentRole} currentBranch={currentBranch} currentUser={currentUser} showToast={showToast} externalSelectedStudentId={selectedStudentId} setExternalSelectedStudentId={setSelectedStudentId} externalSearchQuery={globalSearchQuery} />}
+          {activeTab === 'clients' && <ClientsList currentRole={currentRole} currentBranch={currentBranch} onStudentClick={navigateToStudent} onAddClient={() => setShowNewAppModal(true)} externalSearchQuery={globalSearchQuery} />}
+          {activeTab === 'payments' && <FinancialLedger currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} externalSearchQuery={globalSearchQuery} />}
           {activeTab === 'reports' && <ActivityTimeline currentRole={currentRole} currentBranch={currentBranch} />}
-          {activeTab === 'visa_types' && <VisaTypesManager currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} />}
+          {activeTab === 'visa_types' && <VisaTypesManager currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} externalSearchQuery={globalSearchQuery} />}
           {activeTab === 'config' && currentRole === 'super_admin' && <ConfigurationManager showToast={showToast} />}
           {activeTab === 'templates' && currentRole === 'super_admin' && <MasterTemplatesManager showToast={showToast} />}
 
-          {['visa_types', 'communication', 'partners'].includes(activeTab) && (
+          {['communication', 'partners'].includes(activeTab) && (
             <div style={{ padding: '60px', textAlign: 'center', background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
               <Settings size={48} color="#9ca3af" style={{ margin: '0 auto 16px' }} />
               <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#111827', margin: '0 0 8px 0' }}>Coming Soon</h2>
