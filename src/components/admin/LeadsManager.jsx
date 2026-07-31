@@ -177,7 +177,12 @@ export default function LeadsManager({ currentRole, currentBranch, currentUser, 
     }
   };
 
-  const activeFilterCount = (filterStatus !== 'All' ? 1 : 0) + (filterCountry !== 'All' ? 1 : 0) + (filterLevel !== 'All' ? 1 : 0) + (searchTerm.trim() ? 1 : 0);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('All');
+  const [filterCountry, setFilterCountry] = useState('All');
+  const [filterLevel, setFilterLevel] = useState('All');
+
+  const activeFilterCount = (filterStatus !== 'All' ? 1 : 0) + (filterCountry !== 'All' ? 1 : 0) + (filterLevel !== 'All' ? 1 : 0) + (searchTerm ? 1 : 0);
 
   const clearFilters = () => {
     setSearchTerm('');
@@ -187,21 +192,21 @@ export default function LeadsManager({ currentRole, currentBranch, currentUser, 
   };
 
   const filteredLeads = leads.filter(lead => {
-    const sTerm = searchTerm.trim().toLowerCase();
-    const name = (lead.name || '').toLowerCase();
-    const email = (lead.email || '').toLowerCase();
-    const phone = (lead.phone || '').toLowerCase();
-    const course = (lead.intended_course || '').toLowerCase();
-    const country = (lead.interested_country || '').toLowerCase();
-    const level = (lead.education_level || '').toLowerCase();
+    const sTerm = searchTerm.toLowerCase();
+    const name = lead.name || '';
+    const email = lead.email || '';
+    const phone = lead.phone || '';
+    const course = lead.intended_course || '';
+    const country = lead.interested_country || '';
+    const level = lead.education_level || '';
 
     const matchesSearch = !sTerm || 
-      name.includes(sTerm) || 
-      email.includes(sTerm) ||
-      phone.includes(sTerm) ||
-      course.includes(sTerm) ||
-      country.includes(sTerm) ||
-      level.includes(sTerm);
+      name.toLowerCase().includes(sTerm) || 
+      email.toLowerCase().includes(sTerm) ||
+      phone.toLowerCase().includes(sTerm) ||
+      course.toLowerCase().includes(sTerm) ||
+      country.toLowerCase().includes(sTerm) ||
+      level.toLowerCase().includes(sTerm);
 
     const matchesStatus = filterStatus === 'All' || lead.status === filterStatus;
     const matchesCountry = filterCountry === 'All' || lead.interested_country === filterCountry;
@@ -229,79 +234,82 @@ export default function LeadsManager({ currentRole, currentBranch, currentUser, 
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Search Input Bar */}
-          <div style={{ position: 'relative', width: '280px' }}>
-            <Search size={16} color="var(--admin-text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
-            <input
-              type="text"
-              placeholder="Search applicant, course, phone..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="admin-input"
-              style={{ paddingLeft: '36px', width: '100%', background: '#ffffff', fontSize: '0.85rem' }}
-            />
-          </div>
+           {/* Search Input Bar */}
+           <div style={{ position: 'relative', width: '280px' }}>
+             <Search size={16} color="var(--admin-text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+             <input
+               type="text"
+               placeholder="Search applicant, course, phone..."
+               value={searchTerm}
+               onChange={(e) => setSearchTerm(e.target.value)}
+               className="admin-input"
+               style={{ paddingLeft: '36px', width: '100%', background: '#ffffff', fontSize: '0.85rem' }}
+             />
+           </div>
 
-          <button 
-            onClick={() => setShowFilterPanel(!showFilterPanel)} 
-            className="admin-btn"
-            style={{
-              background: showFilterPanel || activeFilterCount > 0 ? 'var(--admin-primary-light)' : '#ffffff',
-              color: showFilterPanel || activeFilterCount > 0 ? 'var(--admin-primary)' : '#374151',
-              border: `1px solid ${showFilterPanel || activeFilterCount > 0 ? 'var(--admin-primary)' : '#d1d5db'}`,
-              display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontSize: '0.85rem', fontWeight: '600'
-            }}
-          >
-            <Filter size={16} /> Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
-          </button>
+           <button 
+             onClick={() => setShowFilterPanel(!showFilterPanel)} 
+             className="admin-btn"
+             style={{
+               background: showFilterPanel || activeFilterCount > 0 ? 'var(--admin-primary-light)' : '#ffffff',
+               color: showFilterPanel || activeFilterCount > 0 ? 'var(--admin-primary)' : '#374151',
+               border: '1px solid var(--admin-border-light)',
+               display: 'flex', alignItems: 'center', gap: '8px'
+             }}
+           >
+             <Filter size={16} /> Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
+           </button>
 
-          {activeFilterCount > 0 && (
-            <button onClick={clearFilters} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}>
-              Reset Filters
-            </button>
-          )}
-
-          <button onClick={() => setShowNewLeadModal(true)} className="admin-btn admin-btn-primary">
-            + New application
-          </button>
+           <button onClick={() => setShowNewLeadModal(true)} className="admin-btn admin-btn-primary">
+             + New application
+           </button>
         </div>
       </div>
 
-      {/* Toggleable Filter Panel */}
+      {/* Filter Panel */}
       {showFilterPanel && (
-        <div className="admin-card" style={{ padding: '16px 24px', background: '#ffffff', borderRadius: '10px', border: '1px solid var(--admin-border-light)', marginBottom: '24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', alignItems: 'center' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: 'var(--admin-text-muted)', marginBottom: '6px', textTransform: 'uppercase' }}>Application Status</label>
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="admin-input" style={{ width: '100%', background: '#f9fafb' }}>
-              <option value="All">All Statuses</option>
-              <option value="New">Pending (New)</option>
-              <option value="Contacted">Processing (Contacted)</option>
-              <option value="Converted">Approved (Converted)</option>
-              <option value="Lost">Refused (Lost)</option>
-            </select>
+        <div style={{ background: '#ffffff', border: '1px solid var(--admin-border-light)', borderRadius: '12px', padding: '20px', marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: 'var(--admin-shadow-sm)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '700', color: 'var(--admin-text-primary)' }}>Filter Applications</h4>
+            {activeFilterCount > 0 && (
+              <button onClick={clearFilters} style={{ background: 'none', border: 'none', color: 'var(--admin-danger)', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}>
+                Reset All Filters
+              </button>
+            )}
           </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: 'var(--admin-text-muted)', marginBottom: '6px', textTransform: 'uppercase' }}>Destination Country</label>
-            <select value={filterCountry} onChange={e => setFilterCountry(e.target.value)} className="admin-input" style={{ width: '100%', background: '#f9fafb' }}>
-              <option value="All">All Countries</option>
-              <option value="United States">United States</option>
-              <option value="United Kingdom">United Kingdom</option>
-              <option value="Canada">Canada</option>
-              <option value="Australia">Australia</option>
-              <option value="Germany">Germany</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: 'var(--admin-text-muted)', marginBottom: '6px', textTransform: 'uppercase' }}>Education Level</label>
-            <select value={filterLevel} onChange={e => setFilterLevel(e.target.value)} className="admin-input" style={{ width: '100%', background: '#f9fafb' }}>
-              <option value="All">All Levels</option>
-              <option value="Bachelor">Bachelor</option>
-              <option value="Master">Master</option>
-              <option value="PhD">PhD</option>
-              <option value="Diploma">Diploma</option>
-            </select>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: 'var(--admin-text-secondary)', marginBottom: '6px', textTransform: 'uppercase' }}>Status</label>
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="admin-input" style={{ width: '100%', background: '#f9fafb' }}>
+                <option value="All">All Statuses</option>
+                <option value="New">Pending (New)</option>
+                <option value="Contacted">Processing (Contacted)</option>
+                <option value="Converted">Approved (Converted)</option>
+                <option value="Lost">Refused (Lost)</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: 'var(--admin-text-secondary)', marginBottom: '6px', textTransform: 'uppercase' }}>Destination Country</label>
+              <select value={filterCountry} onChange={(e) => setFilterCountry(e.target.value)} className="admin-input" style={{ width: '100%', background: '#f9fafb' }}>
+                <option value="All">All Countries</option>
+                <option value="United Kingdom">United Kingdom</option>
+                <option value="United States">United States</option>
+                <option value="Canada">Canada</option>
+                <option value="Australia">Australia</option>
+                <option value="New Zealand">New Zealand</option>
+                <option value="Ireland">Ireland</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: 'var(--admin-text-secondary)', marginBottom: '6px', textTransform: 'uppercase' }}>Education Level</label>
+              <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} className="admin-input" style={{ width: '100%', background: '#f9fafb' }}>
+                <option value="All">All Levels</option>
+                <option value="Undergraduate">Undergraduate</option>
+                <option value="Postgraduate">Postgraduate</option>
+                <option value="Diploma">Diploma</option>
+                <option value="PhD">PhD</option>
+              </select>
+            </div>
           </div>
         </div>
       )}
