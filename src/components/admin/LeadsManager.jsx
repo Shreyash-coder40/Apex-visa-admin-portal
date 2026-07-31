@@ -177,11 +177,6 @@ export default function LeadsManager({ currentRole, currentBranch, currentUser, 
     }
   };
 
-  const [showFilterPanel, setShowFilterPanel] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('All');
-  const [filterCountry, setFilterCountry] = useState('All');
-  const [filterLevel, setFilterLevel] = useState('All');
-
   const activeFilterCount = (filterStatus !== 'All' ? 1 : 0) + (filterCountry !== 'All' ? 1 : 0) + (filterLevel !== 'All' ? 1 : 0) + (searchTerm ? 1 : 0);
 
   const clearFilters = () => {
