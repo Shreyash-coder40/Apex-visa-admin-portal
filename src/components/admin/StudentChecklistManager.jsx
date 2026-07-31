@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, FileCheck, CheckCircle2, AlertCircle, Clock, Plus, ArrowRight, ShieldCheck, FileText, Check, X, Award, Globe, Building2, Loader2, DollarSign, Download, MessageSquare, MoreHorizontal, Calendar, MapPin, Key, Search, Filter } from 'lucide-react';
+import { Users, FileCheck, CheckCircle2, AlertCircle, Clock, Plus, ArrowRight, ShieldCheck, FileText, Check, X, Award, Globe, Building2, Loader2, DollarSign, Download, MessageSquare, MoreHorizontal, Calendar, MapPin, Key, Search, Filter, SquarePen } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import StudentTimelineView from './StudentTimelineView';
 
