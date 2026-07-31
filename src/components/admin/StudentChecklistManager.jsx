@@ -455,7 +455,7 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
                 <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.email || selectedStudent?.leads?.email || 'Not provided'}</div>
               </div>
               <div>
-                <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>ACADEMIC PROFILE</div>
+                <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Highest Qualification</div>
                 <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.highest_qualification || 'Not provided'}</div>
               </div>
               <div>
@@ -465,6 +465,62 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
               <div style={{ gridColumn: '1 / -1' }}>
                 <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>PERMANENT ADDRESS</div>
                 <div style={{ fontSize: '0.95rem', color: '#111827', fontWeight: '500' }}>{selectedStudent?.address || 'Not provided'}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Documents Card */}
+          <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ padding: '24px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: '#111827' }}>Documents</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: '500' }}>{completedDocs} of {currentChecklist.length || 0} approved</div>
+                <button
+                  onClick={() => setShowAddDocModal(true)}
+                  style={{ background: 'var(--admin-bg-body)', border: '1px solid var(--admin-border-light)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: 'var(--admin-text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Plus size={14} /> Request Document
+                </button>
+                <button
+                  onClick={() => {
+                    if (!selectedStudent?.invite_code) {
+                      showToast('Please generate an invite code first', 'error');
+                      return;
+                    }
+                    const link = `${window.location.origin}/upload/${selectedStudent.invite_code}`;
+                    navigator.clipboard.writeText(link);
+                    if (showToast) showToast('Secure Upload Link copied to clipboard!');
+                  }}
+                  style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#0f172a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Key size={14} /> Copy Upload Link
+                </button>
+              </div>
+            </div>
+
+            {/* Document Search & Filter Controls */}
+            <div style={{ padding: '16px 24px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+                <Search size={14} color="#9ca3af" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+                <input
+                  type="text"
+                  placeholder="Search documents by name..."
+                  value={docSearchQuery}
+                  onChange={(e) => setDocSearchQuery(e.target.value)}
+                  style={{ width: '100%', padding: '6px 10px 6px 30px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.8rem', background: '#ffffff' }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Filter size={14} color="#9ca3af" />
+                <select
+                  value={docStatusFilter}
+                  onChange={(e) => setDocStatusFilter(e.target.value)}
+                  style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.8rem', background: '#ffffff' }}
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Received">Received</option>
+                  <option value="Rejected">Rejected</option>
+                  <option value="Waived">Waived</option>
+                </select>
               </div>
             </div>
           </div>

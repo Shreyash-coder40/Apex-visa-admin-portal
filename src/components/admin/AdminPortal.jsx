@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LayoutDashboard, Users, UserPlus, DollarSign, History, LogOut, Loader2, Settings, Search, Menu, Bell, Sun, FileText, Globe, MessageSquare } from 'lucide-react';
 import DashboardOverview from './DashboardOverview';
 import LeadsManager from './LeadsManager';
@@ -25,10 +25,27 @@ export default function AdminPortal() {
   const [pipelineCount, setPipelineCount] = useState(0);
   const [documentsCount, setDocumentsCount] = useState(0);
 
+  // Global Header Search States
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [globalSearchResults, setGlobalSearchResults] = useState({ clients: [], leads: [] });
   const [showGlobalSearchDropdown, setShowGlobalSearchDropdown] = useState(false);
+  const searchInputRef = useRef(null);
 
+  // Keyboard Shortcut (Cmd+K / Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Live Supabase Search
   useEffect(() => {
     if (!globalSearchQuery.trim()) {
       setGlobalSearchResults({ clients: [], leads: [] });
@@ -36,26 +53,46 @@ export default function AdminPortal() {
       return;
     }
 
+    const term = globalSearchQuery.trim();
+    setShowGlobalSearchDropdown(true);
+
     const timer = setTimeout(async () => {
-      const term = `%${globalSearchQuery.trim()}%`;
-      const { data: clientsData } = await supabase
-        .from('students')
-        .select('id, name, education_level')
-        .ilike('name', term)
-        .limit(5);
+      try {
+        // Search Clients (Students)
+        let sQuery = supabase
+          .from('students')
+          .select('id, name, email, phone, education_level, branches(name), leads(name, email)')
+          .or(`name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`)
+          .limit(5);
 
-      const { data: leadsData } = await supabase
-        .from('leads')
-        .select('id, name, intended_course')
-        .ilike('name', term)
-        .limit(5);
+        if (currentRole === 'branch_admin' && currentBranch?.id) {
+          sQuery = sQuery.eq('branch_id', currentBranch.id);
+        }
 
-      setGlobalSearchResults({ clients: clientsData || [], leads: leadsData || [] });
-      setShowGlobalSearchDropdown(true);
-    }, 250);
+        // Search Pipeline Applications (Leads)
+        let lQuery = supabase
+          .from('leads')
+          .select('id, name, email, phone, interested_country, intended_course, status')
+          .or(`name.ilike.%${term}%,email.ilike.%${term}%,intended_course.ilike.%${term}%,interested_country.ilike.%${term}%`)
+          .limit(5);
+
+        if (currentRole === 'branch_admin' && currentBranch?.id) {
+          lQuery = lQuery.eq('assigned_branch_id', currentBranch.id);
+        }
+
+        const [{ data: clientsData }, { data: leadsData }] = await Promise.all([sQuery, lQuery]);
+
+        setGlobalSearchResults({
+          clients: clientsData || [],
+          leads: leadsData || []
+        });
+      } catch (err) {
+        console.error('Global search error:', err);
+      }
+    }, 200);
 
     return () => clearTimeout(timer);
-  }, [globalSearchQuery]);
+  }, [globalSearchQuery, currentRole, currentBranch]);
 
   useEffect(() => {
     async function loadUserProfile() {
@@ -334,13 +371,14 @@ export default function AdminPortal() {
             <div style={{ position: 'relative', width: '400px' }}>
               <div style={{ display: 'flex', alignItems: 'center', background: 'var(--admin-bg-body)', borderRadius: '8px', padding: '10px 16px', border: '1px solid var(--admin-border-light)' }}>
                 <Search size={16} color="var(--admin-text-muted)" style={{ marginRight: '10px' }} />
-                <input
-                  type="text"
-                  placeholder="Search applications, clients, payments..."
+                <input 
+                  ref={searchInputRef}
+                  type="text" 
+                  placeholder="Search applications, clients, payments..." 
                   value={globalSearchQuery}
                   onChange={(e) => setGlobalSearchQuery(e.target.value)}
                   onFocus={() => { if (globalSearchQuery.trim()) setShowGlobalSearchDropdown(true); }}
-                  style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: '0.85rem', width: '100%', color: 'var(--admin-text-primary)' }}
+                  style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: '0.85rem', width: '100%', color: 'var(--admin-text-primary)' }} 
                 />
                 {globalSearchQuery ? (
                   <button onClick={() => { setGlobalSearchQuery(''); setShowGlobalSearchDropdown(false); }} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '0.8rem', padding: 0 }}>&times;</button>
@@ -352,6 +390,8 @@ export default function AdminPortal() {
               {/* Instant Search Dropdown Results */}
               {showGlobalSearchDropdown && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px', background: '#ffffff', border: '1px solid var(--admin-border-light)', borderRadius: '10px', boxShadow: 'var(--admin-shadow-lg)', zIndex: 100, overflow: 'hidden', padding: '12px 0' }}>
+                  
+                  {/* Clients Section */}
                   <div style={{ padding: '4px 16px 8px 16px', fontSize: '0.65rem', fontWeight: '700', color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     CLIENT DIRECTORY
                   </div>
@@ -359,19 +399,24 @@ export default function AdminPortal() {
                     <div style={{ padding: '8px 16px', fontSize: '0.8rem', color: '#9ca3af' }}>No matching clients</div>
                   ) : (
                     globalSearchResults.clients.map(client => (
-                      <div
+                      <div 
                         key={client.id}
                         onClick={() => {
                           navigateToStudent(client.id);
                           setShowGlobalSearchDropdown(false);
                           setGlobalSearchQuery('');
                         }}
-                        style={{ padding: '8px 16px', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--admin-text-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.15s' }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                        style={{ padding: '8px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.2s' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#f9fafb'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                       >
-                        <span style={{ fontWeight: '600' }}>{client.name}</span>
-                        <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{client.education_level || 'Client'}</span>
+                        <div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-primary)' }}>{client.name || client.leads?.name || 'Unnamed Client'}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)' }}>{client.email || client.leads?.email || 'No email'}</div>
+                        </div>
+                        <span style={{ fontSize: '0.7rem', background: '#f3f4f6', color: '#374151', padding: '2px 8px', borderRadius: '10px' }}>
+                          {client.branches?.name || 'Client File'}
+                        </span>
                       </div>
                     ))
                   )}
@@ -390,12 +435,17 @@ export default function AdminPortal() {
                           setShowGlobalSearchDropdown(false);
                           setGlobalSearchQuery('');
                         }}
-                        style={{ padding: '8px 16px', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--admin-text-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.15s' }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                        style={{ padding: '8px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.2s' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#f9fafb'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                       >
-                        <span style={{ fontWeight: '600' }}>{lead.name}</span>
-                        <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{lead.intended_course || 'Lead'}</span>
+                        <div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-primary)' }}>{lead.name || 'Unnamed Lead'}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)' }}>{lead.intended_course || lead.interested_country || 'General Application'}</div>
+                        </div>
+                        <span style={{ fontSize: '0.7rem', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '10px', fontWeight: '600' }}>
+                          {lead.status}
+                        </span>
                       </div>
                     ))
                   )}

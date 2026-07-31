@@ -30,6 +30,11 @@ export default function LeadsManager({ currentRole, currentBranch, currentUser, 
     english_overall_score: ''
   });
 
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('All');
+  const [filterCountry, setFilterCountry] = useState('All');
+  const [filterLevel, setFilterLevel] = useState('All');
+
   useEffect(() => {
     fetchLeads();
   }, [currentRole, currentBranch]);
