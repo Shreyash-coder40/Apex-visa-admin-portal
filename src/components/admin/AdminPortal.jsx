@@ -5,7 +5,6 @@ import LeadsManager from './LeadsManager';
 import StudentChecklistManager from './StudentChecklistManager';
 import FinancialLedger from './FinancialLedger';
 import ClientsList from './ClientsList';
-import DocumentsMasterList from './DocumentsMasterList';
 import ActivityTimeline from './ActivityTimeline';
 import ConfigurationManager from './ConfigurationManager';
 import MasterTemplatesManager from './MasterTemplatesManager';
@@ -23,7 +22,6 @@ export default function AdminPortal() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showNewAppModal, setShowNewAppModal] = useState(false);
   const [pipelineCount, setPipelineCount] = useState(0);
-  const [documentsCount, setDocumentsCount] = useState(0);
 
   // Global Header Search States
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
@@ -148,26 +146,6 @@ export default function AdminPortal() {
         const { count: lCount } = await leadsQuery;
         setPipelineCount(lCount || 0);
 
-        const { data: docsData } = await supabase.from('document_items').select(`
-          id,
-          checklist_instances(
-            student_destinations(
-              students(
-                branch_id
-              )
-            )
-          )
-        `);
-        let dCount = 0;
-        if (staff?.role === 'branch_admin' && branch) {
-          dCount = (docsData || []).filter(d =>
-            d.checklist_instances?.student_destinations?.students?.branch_id === branch.id
-          ).length;
-        } else {
-          dCount = (docsData || []).length;
-        }
-        setDocumentsCount(dCount);
-
       } catch (err) {
         console.error('Error loading profile:', err);
       } finally {
@@ -207,7 +185,6 @@ export default function AdminPortal() {
   let navItems = [
     { id: 'dashboard', category: 'OVERVIEW', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
     { id: 'pipeline', category: 'OPERATIONS', label: 'Pipeline', icon: <LayoutDashboard size={18} />, badge: pipelineCount > 0 ? pipelineCount : null },
-    { id: 'documents', category: 'OPERATIONS', label: 'Documents', icon: <FileText size={18} />, badge: documentsCount > 0 ? documentsCount : null },
     { id: 'clients', category: 'OPERATIONS', label: 'Clients', icon: <Users size={18} /> },
     { id: 'payments', category: 'COMMERCE', label: 'Payments', icon: <DollarSign size={18} /> },
     { id: 'visa_types', category: 'COMMERCE', label: 'Visa Types', icon: <Globe size={18} /> },
@@ -367,90 +344,11 @@ export default function AdminPortal() {
               </button>
             )}
 
-            {/* Minimalist Search Bar with Instant Results */}
-            <div style={{ position: 'relative', width: '400px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--admin-bg-body)', borderRadius: '8px', padding: '10px 16px', border: '1px solid var(--admin-border-light)' }}>
-                <Search size={16} color="var(--admin-text-muted)" style={{ marginRight: '10px' }} />
-                <input 
-                  ref={searchInputRef}
-                  type="text" 
-                  placeholder="Search applications, clients, payments..." 
-                  value={globalSearchQuery}
-                  onChange={(e) => setGlobalSearchQuery(e.target.value)}
-                  onFocus={() => { if (globalSearchQuery.trim()) setShowGlobalSearchDropdown(true); }}
-                  style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: '0.85rem', width: '100%', color: 'var(--admin-text-primary)' }} 
-                />
-                {globalSearchQuery ? (
-                  <button onClick={() => { setGlobalSearchQuery(''); setShowGlobalSearchDropdown(false); }} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '0.8rem', padding: 0 }}>&times;</button>
-                ) : (
-                  <div style={{ background: 'white', border: '1px solid var(--admin-border-light)', borderRadius: '4px', padding: '2px 6px', fontSize: '0.65rem', color: 'var(--admin-text-muted)', fontWeight: '600' }}>⌘K</div>
-                )}
-              </div>
-
-              {/* Instant Search Dropdown Results */}
-              {showGlobalSearchDropdown && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '8px', background: '#ffffff', border: '1px solid var(--admin-border-light)', borderRadius: '10px', boxShadow: 'var(--admin-shadow-lg)', zIndex: 100, overflow: 'hidden', padding: '12px 0' }}>
-                  
-                  {/* Clients Section */}
-                  <div style={{ padding: '4px 16px 8px 16px', fontSize: '0.65rem', fontWeight: '700', color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    CLIENT DIRECTORY
-                  </div>
-                  {globalSearchResults.clients.length === 0 ? (
-                    <div style={{ padding: '8px 16px', fontSize: '0.8rem', color: '#9ca3af' }}>No matching clients</div>
-                  ) : (
-                    globalSearchResults.clients.map(client => (
-                      <div 
-                        key={client.id}
-                        onClick={() => {
-                          navigateToStudent(client.id);
-                          setShowGlobalSearchDropdown(false);
-                          setGlobalSearchQuery('');
-                        }}
-                        style={{ padding: '8px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.2s' }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = '#f9fafb'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <div>
-                          <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-primary)' }}>{client.name || client.leads?.name || 'Unnamed Client'}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)' }}>{client.email || client.leads?.email || 'No email'}</div>
-                        </div>
-                        <span style={{ fontSize: '0.7rem', background: '#f3f4f6', color: '#374151', padding: '2px 8px', borderRadius: '10px' }}>
-                          {client.branches?.name || 'Client File'}
-                        </span>
-                      </div>
-                    ))
-                  )}
-
-                  <div style={{ borderTop: '1px solid #f3f4f6', margin: '8px 0', padding: '8px 16px 4px 16px', fontSize: '0.65rem', fontWeight: '700', color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    PIPELINE APPLICATIONS
-                  </div>
-                  {globalSearchResults.leads.length === 0 ? (
-                    <div style={{ padding: '8px 16px', fontSize: '0.8rem', color: '#9ca3af' }}>No matching pipeline applications</div>
-                  ) : (
-                    globalSearchResults.leads.map(lead => (
-                      <div
-                        key={lead.id}
-                        onClick={() => {
-                          setActiveTab('pipeline');
-                          setShowGlobalSearchDropdown(false);
-                          setGlobalSearchQuery('');
-                        }}
-                        style={{ padding: '8px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.2s' }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = '#f9fafb'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <div>
-                          <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--admin-text-primary)' }}>{lead.name || 'Unnamed Lead'}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted)' }}>{lead.intended_course || lead.interested_country || 'General Application'}</div>
-                        </div>
-                        <span style={{ fontSize: '0.7rem', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: '10px', fontWeight: '600' }}>
-                          {lead.status}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
+            {/* Minimalist Search Bar */}
+            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--admin-bg-body)', borderRadius: '8px', padding: '10px 16px', width: '400px', border: '1px solid var(--admin-border-light)' }}>
+              <Search size={16} color="var(--admin-text-muted)" style={{ marginRight: '10px' }} />
+              <input type="text" placeholder="Search applications, clients, payments..." style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: '0.85rem', width: '100%', color: 'var(--admin-text-primary)' }} />
+              <div style={{ background: 'white', border: '1px solid var(--admin-border-light)', borderRadius: '4px', padding: '2px 6px', fontSize: '0.65rem', color: 'var(--admin-text-muted)', fontWeight: '600' }}>⌘K</div>
             </div>
           </div>
 
@@ -479,7 +377,6 @@ export default function AdminPortal() {
           {activeTab === 'pipeline' && <LeadsManager currentRole={currentRole} currentBranch={currentBranch} currentUser={currentUser} showToast={showToast} />}
           {activeTab === 'application_detail' && <StudentChecklistManager currentRole={currentRole} currentBranch={currentBranch} currentUser={currentUser} showToast={showToast} externalSelectedStudentId={selectedStudentId} setExternalSelectedStudentId={setSelectedStudentId} />}
           {activeTab === 'clients' && <ClientsList currentRole={currentRole} currentBranch={currentBranch} onStudentClick={navigateToStudent} onAddClient={() => setShowNewAppModal(true)} />}
-          {activeTab === 'documents' && <DocumentsMasterList currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} onStudentClick={navigateToStudent} />}
           {activeTab === 'payments' && <FinancialLedger currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} />}
           {activeTab === 'reports' && <ActivityTimeline currentRole={currentRole} currentBranch={currentBranch} />}
           {activeTab === 'visa_types' && <VisaTypesManager currentRole={currentRole} currentBranch={currentBranch} showToast={showToast} />}
