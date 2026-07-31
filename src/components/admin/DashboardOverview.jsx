@@ -149,7 +149,7 @@ export default function DashboardOverview({ currentRole, currentBranch, onNaviga
                 {stats.unassignedLeads}
               </div>
               <div style={{ fontSize: '0.85rem', color: 'var(--admin-text-secondary)', fontWeight: '500' }}>
-                Applications in Pipeline
+                Student Leads
               </div>
             </div>
 
@@ -186,11 +186,11 @@ export default function DashboardOverview({ currentRole, currentBranch, onNaviga
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
             
-            {/* Pipeline Funnel */}
+            {/* Student Leads Funnel */}
             <div className="admin-card" style={{ padding: 0 }}>
               <div className="admin-card-header" style={{ padding: '24px', borderBottom: '1px solid var(--admin-border-light)' }}>
                 <h3 className="admin-card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <TrendingUp size={18} color="var(--admin-primary)" /> Conversion Pipeline
+                  <TrendingUp size={18} color="var(--admin-primary)" /> Student Leads Conversion
                 </h3>
               </div>
               

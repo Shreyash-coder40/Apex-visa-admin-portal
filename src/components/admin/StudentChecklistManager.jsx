@@ -289,9 +289,9 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
         <div style={{ background: '#ffffff', borderRadius: '14px', padding: '40px', textAlign: 'center', border: '1px solid var(--admin-border-light)' }}>
           <AlertCircle size={40} color="var(--admin-text-muted)" style={{ margin: '0 auto 16px' }} />
           <h2 style={{ fontSize: '1.2rem', color: 'var(--admin-text-primary)', margin: '0 0 8px 0' }}>No Clients Found</h2>
-          <p style={{ color: 'var(--admin-text-muted)', margin: 0 }}>Convert a lead to a student in the Pipeline to view details.</p>
+          <p style={{ color: 'var(--admin-text-muted)', margin: 0 }}>Convert a lead to a student in Student Leads to view details.</p>
           <h2 style={{ fontSize: '1.2rem', color: '#111827', margin: '0 0 8px 0' }}>No Clients Found</h2>
-          <p style={{ color: '#6b7280', margin: 0 }}>Convert a lead to a student in the Pipeline to view details.</p>
+          <p style={{ color: '#6b7280', margin: 0 }}>Convert a lead to a student in Student Leads to view details.</p>
         </div>
       </div>
     );
@@ -303,7 +303,7 @@ export default function StudentChecklistManager({ currentRole, currentBranch, sh
         <div style={{ background: '#ffffff', borderRadius: '14px', padding: '40px', textAlign: 'center', border: '1px solid var(--admin-border-light)' }}>
           <Users size={40} color="var(--admin-text-muted)" style={{ margin: '0 auto 16px' }} />
           <h2 style={{ fontSize: '1.2rem', color: '#111827', margin: '0 0 8px 0' }}>No Application Selected</h2>
-          <p style={{ color: '#6b7280', margin: '0 0 20px 0' }}>Select an application below or from the Clients directory/Pipeline.</p>
+          <p style={{ color: '#6b7280', margin: '0 0 20px 0' }}>Select an application below or from the Clients directory / Student Leads.</p>
           <div style={{ maxWidth: '400px', margin: '0 auto' }}>
             <select 
               onChange={(e) => {

@@ -206,7 +206,7 @@ export default function AdminPortal() {
   // Define nav items here so we can remove web_cms
   let navItems = [
     { id: 'dashboard', category: 'OVERVIEW', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-    { id: 'pipeline', category: 'OPERATIONS', label: 'Pipeline', icon: <LayoutDashboard size={18} />, badge: pipelineCount > 0 ? pipelineCount : null },
+    { id: 'pipeline', category: 'OPERATIONS', label: 'Student Leads', icon: <LayoutDashboard size={18} />, badge: pipelineCount > 0 ? pipelineCount : null },
     { id: 'clients', category: 'OPERATIONS', label: 'Clients', icon: <Users size={18} /> },
     { id: 'payments', category: 'COMMERCE', label: 'Payments', icon: <DollarSign size={18} /> },
     { id: 'visa_types', category: 'COMMERCE', label: 'Visa Types', icon: <Globe size={18} /> },
@@ -445,7 +445,7 @@ export default function AdminPortal() {
                       {globalSearchResults.leads.length > 0 && (
                         <div style={{ marginTop: globalSearchResults.clients.length > 0 ? '8px' : 0 }}>
                           <div style={{ padding: '6px 16px', fontSize: '0.7rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            Pipeline Applications ({globalSearchResults.leads.length})
+                            Student Leads ({globalSearchResults.leads.length})
                           </div>
                           {globalSearchResults.leads.map(lead => (
                             <div
@@ -464,7 +464,7 @@ export default function AdminPortal() {
                                 </div>
                               </div>
                               <div style={{ fontSize: '0.7rem', background: '#fffbeb', color: '#b45309', padding: '2px 8px', borderRadius: '12px', fontWeight: '600' }}>
-                                {lead.status || 'Pipeline'}
+                                {lead.status || 'Student Lead'}
                               </div>
                             </div>
                           ))}
@@ -492,7 +492,7 @@ export default function AdminPortal() {
         {/* Dynamic Page Header */}
         <div style={{ padding: '24px 32px 0 32px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: '500', marginBottom: '8px' }}>
-            <span style={{ textTransform: 'capitalize' }}>Operations</span> / {activeTab.replace('_', ' ')}
+            <span style={{ textTransform: 'capitalize' }}>Operations</span> / {activeTab === 'pipeline' ? 'Student Leads' : activeTab.replace('_', ' ')}
           </div>
         </div>
 

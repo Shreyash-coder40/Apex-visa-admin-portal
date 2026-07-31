@@ -228,7 +228,7 @@ export default function LeadsManager({ currentRole, currentBranch, currentUser, 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 8px 0', color: 'var(--admin-text-primary)' }}>
-            Applications pipeline
+            Student Leads
           </h1>
           <p style={{ color: 'var(--admin-text-secondary)', margin: 0, fontSize: '0.9rem' }}>
             {filteredLeads.length} active applications shown (out of {leads.length} total)
@@ -333,7 +333,7 @@ export default function LeadsManager({ currentRole, currentBranch, currentUser, 
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '32px', borderBottom: '1px solid var(--admin-border-light)', marginBottom: '24px', fontSize: '0.9rem', fontWeight: '500', color: 'var(--admin-text-secondary)' }}>
-         <div onClick={() => setActiveView('kanban')} style={{ paddingBottom: '12px', borderBottom: activeView === 'kanban' ? '2px solid var(--admin-text-primary)' : '2px solid transparent', color: activeView === 'kanban' ? 'var(--admin-text-primary)' : 'var(--admin-text-secondary)', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}>Pipeline (Kanban)</div>
+         <div onClick={() => setActiveView('kanban')} style={{ paddingBottom: '12px', borderBottom: activeView === 'kanban' ? '2px solid var(--admin-text-primary)' : '2px solid transparent', color: activeView === 'kanban' ? 'var(--admin-text-primary)' : 'var(--admin-text-secondary)', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}>Student Leads (Kanban)</div>
          <div onClick={() => setActiveView('list')} style={{ paddingBottom: '12px', borderBottom: activeView === 'list' ? '2px solid var(--admin-text-primary)' : '2px solid transparent', color: activeView === 'list' ? 'var(--admin-text-primary)' : 'var(--admin-text-secondary)', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}>List view</div>
       </div>
 
