@@ -13,7 +13,6 @@ export default function LeadsManager({ currentRole, currentBranch, currentUser, 
   }, [externalSearchQuery]);
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeView, setActiveView] = useState('list');
   
   // New Lead Modal States
   const [showNewLeadModal, setShowNewLeadModal] = useState(false);
@@ -216,13 +215,6 @@ export default function LeadsManager({ currentRole, currentBranch, currentUser, 
     return matchesSearch && matchesStatus && matchesCountry && matchesLevel;
   });
 
-  const columns = [
-    { id: 'New', title: 'PENDING (NEW)' },
-    { id: 'Contacted', title: 'PROCESSING (CONTACTED)' },
-    { id: 'Converted', title: 'APPROVED (CONVERTED)' },
-    { id: 'Lost', title: 'REFUSED (LOST)' }
-  ];
-
   return (
     <div style={{ padding: '0', maxWidth: '100%', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
@@ -315,99 +307,9 @@ export default function LeadsManager({ currentRole, currentBranch, currentUser, 
         </div>
       )}
 
-      <style>{`
-        .kanban-board::-webkit-scrollbar {
-          height: 6px;
-        }
-        .kanban-board::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .kanban-board::-webkit-scrollbar-thumb {
-          background: rgba(148, 163, 184, 0.3);
-          border-radius: 10px;
-        }
-        .kanban-board::-webkit-scrollbar-thumb:hover {
-          background: rgba(148, 163, 184, 0.5);
-        }
-      `}</style>
-
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '32px', borderBottom: '1px solid var(--admin-border-light)', marginBottom: '24px', fontSize: '0.9rem', fontWeight: '500', color: 'var(--admin-text-secondary)' }}>
-         <div onClick={() => setActiveView('kanban')} style={{ paddingBottom: '12px', borderBottom: activeView === 'kanban' ? '2px solid var(--admin-text-primary)' : '2px solid transparent', color: activeView === 'kanban' ? 'var(--admin-text-primary)' : 'var(--admin-text-secondary)', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}>Student Leads (Kanban)</div>
-         <div onClick={() => setActiveView('list')} style={{ paddingBottom: '12px', borderBottom: activeView === 'list' ? '2px solid var(--admin-text-primary)' : '2px solid transparent', color: activeView === 'list' ? 'var(--admin-text-primary)' : 'var(--admin-text-secondary)', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}>List view</div>
-      </div>
-
       {loading ? (
-         <div style={{ padding: '60px', textAlign: 'center' }}>
-           <Loader2 size={40} className="animate-spin" color="var(--admin-primary)" style={{ margin: '0 auto 16px' }} />
-         </div>
-      ) : activeView === 'kanban' ? (
-        <div className="kanban-board">
-          {columns.map(col => {
-            const columnLeads = filteredLeads.filter(l => l.status === col.id);
-            return (
-              <div key={col.id} className="kanban-column">
-                <div className="kanban-column-header">
-                  <span>{col.title}</span>
-                  <span className="kanban-column-count">{columnLeads.length}</span>
-                </div>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, overflowY: 'auto' }}>
-                  {columnLeads.map(lead => (
-                    <div key={lead.id} className="kanban-card">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                           <div className="user-avatar" style={{ background: lead.status === 'Converted' ? 'var(--admin-text-primary)' : lead.status === 'Lost' ? 'var(--admin-danger)' : 'var(--admin-success)' }}>
-                             {(lead.name || 'U').split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase()}
-                           </div>
-                           <div>
-                             <div style={{ fontWeight: '700', color: 'var(--admin-text-primary)', fontSize: '0.95rem' }}>{lead.name || 'Unknown User'}</div>
-                             <div style={{ color: 'var(--admin-text-muted)', fontSize: '0.8rem' }}>{lead.intended_course || lead.interested_country || 'General Inquiry'}</div>
-                           </div>
-                        </div>
-                        <button style={{ background: 'none', border: 'none', color: 'var(--admin-text-muted)', cursor: 'pointer' }}>
-                          <MoreHorizontal size={16} />
-                        </button>
-                      </div>
-                      
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-                        <div style={{ fontWeight: '700', color: 'var(--admin-text-primary)', fontSize: '0.95rem' }}>
-                          {lead.budget ? `$${lead.budget}` : '--'}
-                        </div>
-                        
-                        {/* Action Area / Status Badge */}
-                        {lead.status === 'Converted' && (
-                          <div className="admin-badge admin-badge-success">
-                            <div className="admin-badge-dot"></div> Approved
-                          </div>
-                        )}
-                        {lead.status === 'Lost' && (
-                          <div className="admin-badge admin-badge-danger">
-                            <div className="admin-badge-dot"></div> Refused
-                          </div>
-                        )}
-                        {lead.status === 'New' && !lead.assigned_branch_id && (
-                          <button onClick={() => handleClaimLead(lead.id)} className="admin-btn admin-btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem' }}>
-                            Claim
-                          </button>
-                        )}
-                        {lead.status === 'New' && lead.assigned_branch_id && (
-                          <button onClick={() => handleStatusChange(lead.id, 'Contacted')} className="admin-btn admin-btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem' }}>
-                            Mark Contacted
-                          </button>
-                        )}
-                        {lead.status === 'Contacted' && (
-                          <button onClick={() => handleConvertToStudent(lead)} className="admin-btn" style={{ background: 'var(--admin-success-bg)', color: 'var(--admin-success-text)', padding: '4px 8px', fontSize: '0.75rem' }}>
-                            Convert
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+        <div style={{ padding: '60px', textAlign: 'center' }}>
+          <Loader2 size={40} className="animate-spin" color="var(--admin-primary)" style={{ margin: '0 auto 16px' }} />
         </div>
       ) : (
         <div className="admin-card" style={{ padding: 0, overflow: 'hidden' }}>
